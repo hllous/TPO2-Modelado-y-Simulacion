@@ -7,6 +7,7 @@ import tkinter as tk
 from tkinter import ttk
 from ui.estilos import configurar_estilos_ttk, COLORES, FUENTES
 from gui.interfaz import InterfazGrafica
+from gui.bifurcacion import InterfazBifurcacion
 
 
 class InterfazPrincipal:
@@ -111,18 +112,19 @@ class InterfazPrincipal:
         btn_1d.pack(side=tk.TOP, fill=tk.X, pady=8)
         self.botones_modulos['1d'] = btn_1d
         
-        # Botón para futuro módulo bifurcación
+        # Botón módulo bifurcación
         btn_bifurcacion = tk.Button(
             botones_frame,
             text="🔀 Bifurcaciones",
-            bg='#cccccc',
-            fg='#666666',
+            bg=COLORES['primario'],
+            fg='white',
             font=('Arial', 11, 'bold'),
             padx=15,
             pady=15,
             relief=tk.FLAT,
-            cursor='arrow',
-            state=tk.DISABLED
+            cursor='hand2',
+            command=self.abrir_modulo_bifurcacion,
+            activebackground=COLORES['primario_hover']
         )
         btn_bifurcacion.pack(side=tk.TOP, fill=tk.X, pady=8)
         self.botones_modulos['bifurcacion'] = btn_bifurcacion
@@ -225,12 +227,12 @@ class InterfazPrincipal:
         )
         modulo_1d_text.pack(anchor=tk.W, pady=5)
         
-        # Información bifurcación (próximamente)
+        # Información bifurcación
         bifurcacion_text = tk.Label(
             descripcion_frame,
-            text="🔀 Bifurcaciones (Próximamente) - Análisis de bifurcaciones en sistemas dinámicos.",
+            text="🔀 Bifurcaciones - Análisis de bifurcaciones en sistemas dinámicos 1D\ncon diagramas de bifurcación y análisis de estabilidad.",
             font=('Arial', 10),
-            fg='#999999',
+            fg=COLORES['texto_secundario'],
             bg=COLORES['fondo'],
             justify=tk.LEFT,
             wraplength=400
@@ -251,6 +253,20 @@ class InterfazPrincipal:
         self.modulo_activo = 'sistemas_2d'
         interfaz_2d = InterfazGrafica(modulo_frame)
         interfaz_2d.crear_widgets()
+    
+    def abrir_modulo_bifurcacion(self):
+        """Abre el módulo de bifurcaciones"""
+        # Limpiar contenido anterior
+        for widget in self.content_frame.winfo_children():
+            widget.destroy()
+        
+        # Crear frame para el módulo
+        modulo_frame = ttk.Frame(self.content_frame)
+        modulo_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Crear módulo bifurcación pasando el frame como contenedor
+        self.modulo_activo = 'bifurcacion'
+        interfaz_bifurcacion = InterfazBifurcacion(modulo_frame)
     
     def volver_a_inicio(self):
         """Vuelve a la pantalla de inicio"""
