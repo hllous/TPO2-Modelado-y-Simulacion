@@ -8,6 +8,7 @@ from tkinter import ttk
 from ui.estilos import configurar_estilos_ttk, COLORES, FUENTES
 from gui.interfaz import InterfazGrafica
 from gui.bifurcacion import InterfazBifurcacion
+from gui.sistema_1d import InterfazSistema1D
 
 
 class InterfazPrincipal:
@@ -96,18 +97,19 @@ class InterfazPrincipal:
         separator = ttk.Separator(botones_frame, orient=tk.HORIZONTAL)
         separator.pack(side=tk.TOP, fill=tk.X, pady=10)
         
-        # Botón para futuro módulo 1D
+        # Botón módulo 1D
         btn_1d = tk.Button(
             botones_frame,
             text="📈 Sistemas 1D",
-            bg='#cccccc',
-            fg='#666666',
+            bg=COLORES['primario'],
+            fg='white',
             font=('Arial', 11, 'bold'),
             padx=15,
             pady=15,
             relief=tk.FLAT,
-            cursor='arrow',
-            state=tk.DISABLED
+            cursor='hand2',
+            command=self.abrir_modulo_1d,
+            activebackground=COLORES['primario_hover']
         )
         btn_1d.pack(side=tk.TOP, fill=tk.X, pady=8)
         self.botones_modulos['1d'] = btn_1d
@@ -215,12 +217,12 @@ class InterfazPrincipal:
         )
         modulo_2d_text.pack(anchor=tk.W, pady=5)
         
-        # Información módulo 1D (próximamente)
+        # Información módulo 1D
         modulo_1d_text = tk.Label(
             descripcion_frame,
-            text="📈 Sistemas 1D (Próximamente) - Análisis de sistemas dinámicos unidimensionales.",
+            text="📈 Sistemas 1D - Análisis completo de sistemas dinámicos unidimensionales\nno lineales con campos de fase, trayectorias y equilibrios.",
             font=('Arial', 10),
-            fg='#999999',
+            fg=COLORES['texto_secundario'],
             bg=COLORES['fondo'],
             justify=tk.LEFT,
             wraplength=400
@@ -267,6 +269,20 @@ class InterfazPrincipal:
         # Crear módulo bifurcación pasando el frame como contenedor
         self.modulo_activo = 'bifurcacion'
         interfaz_bifurcacion = InterfazBifurcacion(modulo_frame)
+    
+    def abrir_modulo_1d(self):
+        """Abre el módulo de sistemas 1D"""
+        # Limpiar contenido anterior
+        for widget in self.content_frame.winfo_children():
+            widget.destroy()
+        
+        # Crear frame para el módulo
+        modulo_frame = ttk.Frame(self.content_frame)
+        modulo_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Crear módulo 1D pasando el frame como contenedor
+        self.modulo_activo = 'sistemas_1d'
+        interfaz_1d = InterfazSistema1D(modulo_frame)
     
     def volver_a_inicio(self):
         """Vuelve a la pantalla de inicio"""
