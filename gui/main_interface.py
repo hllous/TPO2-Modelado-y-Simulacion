@@ -93,9 +93,7 @@ class InterfazPrincipal:
         btn_2d.pack(side=tk.TOP, fill=tk.X, pady=8)
         self.botones_modulos['2d'] = btn_2d
         
-        # Espacio para futuros módulos
-        separator = ttk.Separator(botones_frame, orient=tk.HORIZONTAL)
-        separator.pack(side=tk.TOP, fill=tk.X, pady=10)
+
         
         # Botón módulo 1D
         btn_1d = tk.Button(

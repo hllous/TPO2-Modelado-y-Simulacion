@@ -231,6 +231,7 @@ class InterfazGrafica:
         self.entry_f1 = ttk.Entry(self.funciones_frame, textvariable=self.f1_expr,
                                   width=30, font=FUENTES['monoespaciada'])
         self.entry_f1.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=5)
+        self.entry_f1.bind('<KeyRelease>', lambda e: self.analizar_sistema())
         
         # Entrada dy/dt
         ttk.Label(self.funciones_frame, text="dx₂/dt =", 
@@ -240,6 +241,7 @@ class InterfazGrafica:
         self.entry_f2 = ttk.Entry(self.funciones_frame, textvariable=self.f2_expr,
                                   width=30, font=FUENTES['monoespaciada'])
         self.entry_f2.grid(row=2, column=1, sticky=(tk.W, tk.E), pady=5)
+        self.entry_f2.bind('<KeyRelease>', lambda e: self.analizar_sistema())
         
         self.funciones_frame.columnconfigure(1, weight=1)
         
@@ -288,11 +290,11 @@ class InterfazGrafica:
         self.funciones_frame.grid_remove()
     
     def _crear_termino_forzado(self, parent):
-        """Crea frame para término forzado"""
-        forzado_frame = ttk.Frame(parent, style='Card.TFrame', padding="15")
-        forzado_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        """Crea frame para término forzado (solo en modo función)"""
+        self.forzado_frame = ttk.Frame(parent, style='Card.TFrame', padding="15")
+        self.forzado_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
         
-        check = ttk.Checkbutton(forzado_frame, 
+        check = ttk.Checkbutton(self.forzado_frame, 
                                text="Agregar Término Forzado f(t)",
                                variable=self.usar_forzado,
                                command=self.toggle_forzado,
@@ -300,7 +302,7 @@ class InterfazGrafica:
         check.grid(row=0, column=0, columnspan=4, pady=(0, 10), sticky=tk.W)
         
         # Frame de controles (oculto inicialmente)
-        self.forzado_controls = ttk.Frame(forzado_frame)
+        self.forzado_controls = ttk.Frame(self.forzado_frame)
         self.forzado_controls.grid(row=1, column=0, columnspan=4, sticky=(tk.W, tk.E))
         
         # Tipo
@@ -313,7 +315,7 @@ class InterfazGrafica:
                                  state='readonly', width=12)
         tipo_combo.grid(row=0, column=1, columnspan=3, sticky=(tk.W, tk.E), 
                        pady=5, padx=(5, 0))
-        tipo_combo.bind('<<ComboboxSelected>>', self.actualizar_label_param)
+        tipo_combo.bind('<<ComboboxSelected>>', lambda e: self._actualizar_forzado())
         
         # Coeficientes
         ttk.Label(self.forzado_controls, text="f₁:", background='white').grid(
@@ -322,6 +324,7 @@ class InterfazGrafica:
                                      textvariable=self.coef1_var,
                                      width=8, justify='center')
         self.entry_coef1.grid(row=1, column=1, pady=5, padx=(5, 0))
+        self.entry_coef1.bind('<KeyRelease>', lambda e: self._actualizar_forzado())
         
         ttk.Label(self.forzado_controls, text="f₂:", background='white').grid(
             row=1, column=2, sticky=tk.W, pady=5, padx=(10, 0))
@@ -329,6 +332,7 @@ class InterfazGrafica:
                                      textvariable=self.coef2_var,
                                      width=8, justify='center')
         self.entry_coef2.grid(row=1, column=3, pady=5, padx=(5, 0))
+        self.entry_coef2.bind('<KeyRelease>', lambda e: self._actualizar_forzado())
         
         # Parámetro
         self.label_param = tk.Label(self.forzado_controls, text="(no aplica)", 
@@ -339,6 +343,7 @@ class InterfazGrafica:
                                      width=8, justify='center',
                                      state='disabled')
         self.entry_param.grid(row=2, column=1, pady=5, padx=(5, 0))
+        self.entry_param.bind('<KeyRelease>', lambda e: self._actualizar_forzado())
         
         # Fórmula
         self.label_formula = tk.Label(self.forzado_controls, 
@@ -349,6 +354,7 @@ class InterfazGrafica:
         self.label_formula.grid(row=3, column=0, columnspan=4, pady=(10, 0))
         
         self.forzado_controls.grid_remove()
+        self.forzado_frame.grid_remove()
     
     def _crear_ejemplos(self, parent):
         """Crea frame de ejemplos predefinidos en dos columnas"""
@@ -382,41 +388,16 @@ class InterfazGrafica:
         ejemplos_frame.columnconfigure(1, weight=1)
     
     def _crear_resultados(self, parent):
-        """Crea frame de resultados"""
+        """Crea frame de resultados (solo botón, análisis en popup)"""
         resultados_frame = ttk.Frame(parent, style='Card.TFrame', padding="15")
-        resultados_frame.grid(row=5, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        resultados_frame.grid(row=5, column=0, sticky=(tk.W, tk.E))
         parent.rowconfigure(5, weight=1)
         
-        # Header con botón
-        header_frame = ttk.Frame(resultados_frame)
-        header_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
-        resultados_frame.columnconfigure(0, weight=1)
-        
-        ttk.Label(header_frame, text="Resultados del Análisis",
-                 style='Title.TLabel').pack(side=tk.LEFT)
-        
         self.btn_analisis_detallado = ttk.Button(
-            header_frame, text="📊 Ver Análisis Detallado",
-            command=self.mostrar_analisis_popup)
-        self.btn_analisis_detallado.pack(side=tk.RIGHT, padx=5)
-        
-        text_frame = ttk.Frame(resultados_frame)
-        text_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        resultados_frame.rowconfigure(1, weight=1)
-        resultados_frame.columnconfigure(0, weight=1)
-        
-        scrollbar = ttk.Scrollbar(text_frame)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        
-        self.text_resultados = tk.Text(text_frame, wrap=tk.WORD,
-                                       width=40, height=20,
-                                       yscrollcommand=scrollbar.set,
-                                       font=FUENTES['monoespaciada'],
-                                       bg=COLORES['fondo'],
-                                       relief='flat',
-                                       padx=10, pady=10)
-        self.text_resultados.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.config(command=self.text_resultados.yview)
+            resultados_frame, text="📊 Ver Análisis Detallado",
+            command=self.mostrar_analisis_popup,
+            style='Accent.TButton')
+        self.btn_analisis_detallado.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
     
     def _crear_panel_derecho(self, parent):
         """Crea panel derecho con gráfica"""
@@ -463,25 +444,29 @@ class InterfazGrafica:
         if self.modo_funcion.get():
             self.matriz_frame.grid_remove()
             self.funciones_frame.grid()
-            self.usar_forzado.set(False)
-            self.toggle_forzado()
+            self.forzado_frame.grid()
         else:
             self.funciones_frame.grid_remove()
+            self.forzado_frame.grid_remove()
             self.matriz_frame.grid()
+            self.usar_forzado.set(False)
+        self.toggle_forzado()
     
     def toggle_forzado(self):
-        """Muestra/oculta controles del término forzado"""
+        """Muestra/oculta controles del término forzado y analiza"""
         if self.usar_forzado.get():
             self.forzado_controls.grid()
-            self.actualizar_label_param()
+            self._actualizar_forzado()
         else:
             self.forzado_controls.grid_remove()
-        self.actualizar_formula_forzado()
+            if self.modo_funcion.get():
+                self.analizar_sistema()
     
-    def actualizar_label_param(self, event=None):
-        """Actualiza label del parámetro según tipo"""
+    def _actualizar_forzado(self):
+        """Actualiza parámetro, fórmula y analiza sistema"""
         tipo = self.tipo_forzado.get()
         
+        # Actualizar estado del parámetro
         if tipo == 'constante':
             self.label_param.config(text="(no aplica)")
             self.entry_param.config(state='disabled')
@@ -492,18 +477,11 @@ class InterfazGrafica:
             self.label_param.config(text="ω:")
             self.entry_param.config(state='normal')
         
-        self.actualizar_formula_forzado()
-    
-    def actualizar_formula_forzado(self):
-        """Actualiza fórmula mostrada del término forzado"""
-        if not self.usar_forzado.get():
-            return
-        
+        # Actualizar fórmula
         try:
             c1 = float(self.coef1_var.get() or 0)
             c2 = float(self.coef2_var.get() or 0)
             param = float(self.param_var.get() or 1)
-            tipo = self.tipo_forzado.get()
             
             if tipo == 'constante':
                 formula = f"f(t) = [{c1}, {c2}]ᵀ"
@@ -517,6 +495,10 @@ class InterfazGrafica:
             self.label_formula.config(text=formula)
         except:
             pass
+        
+        # Analizar sistema con nuevo término forzado
+        if self.modo_funcion.get():
+            self.analizar_sistema()
     
     def cargar_funcion(self, f1, f2):
         """Carga un ejemplo de función"""
@@ -554,7 +536,6 @@ class InterfazGrafica:
             
             if sistema:
                 self.sistema_actual = sistema
-                self._mostrar_resultados(sistema)
                 
                 grapher = Grapher(sistema)
                 grapher.crear_grafica(self.ax)
@@ -613,103 +594,6 @@ class InterfazGrafica:
         except ValueError:
             messagebox.showerror("Error", "Por favor ingrese valores numéricos válidos")
             return None
-    
-    def _mostrar_resultados(self, sistema):
-        """Muestra resultados del análisis"""
-        self.text_resultados.delete(1.0, tk.END)
-        
-        resultado = self._generar_texto_resultados(sistema)
-        self.text_resultados.insert(1.0, resultado)
-    
-    def _generar_texto_resultados(self, sistema):
-        """Genera el texto con resultados del análisis"""
-        resultado = "═" * 50 + "\n"
-        
-        if sistema.funcion_personalizada:
-            resultado += self._texto_sistema_personalizado(sistema)
-        elif sistema.termino_forzado:
-            resultado += self._texto_sistema_no_homogeneo(sistema)
-        else:
-            resultado += self._texto_sistema_lineal(sistema)
-        
-        resultado += "\n" + "=" * 50 + "\n"
-        return resultado
-    
-    def _texto_sistema_personalizado(self, sistema):
-        """Texto para sistema personalizado"""
-        texto = "   SISTEMA DINÁMICO PERSONALIZADO\n"
-        texto += "═" * 50 + "\n\n"
-        texto += f"dx₁/dt = {sistema.funcion_personalizada['f1']}\n"
-        texto += f"dx₂/dt = {sistema.funcion_personalizada['f2']}\n\n"
-        texto += "Tipo: " + ("NO LINEAL" if sistema.es_no_lineal else "Lineal") + "\n"
-        return texto
-    
-    def _texto_sistema_no_homogeneo(self, sistema):
-        """Texto para sistema no homogéneo"""
-        texto = "   SISTEMA DINÁMICO 2D NO HOMOGÉNEO\n"
-        texto += "═" * 50 + "\n\n"
-        
-        texto += "Matriz A:\n"
-        texto += f"  ⎡ {sistema.A[0,0]:8.4f}  {sistema.A[0,1]:8.4f} ⎤\n"
-        texto += f"  ⎣ {sistema.A[1,0]:8.4f}  {sistema.A[1,1]:8.4f} ⎦\n\n"
-        
-        texto += "Término forzado:\n"
-        tf = sistema.termino_forzado
-        if tf['tipo'] == 'constante':
-            texto += f"  f(t) = [{tf['coef1']:.4f}, {tf['coef2']:.4f}]ᵀ\n"
-        else:
-            texto += f"  f(t) = [{tf['coef1']:.4f}{tf['tipo']}({tf.get('param',1):.4f}t), "
-            texto += f"{tf['coef2']:.4f}{tf['tipo']}({tf.get('param',1):.4f}t)]ᵀ\n"
-        
-        texto += self._texto_autovalores(sistema)
-        return texto
-    
-    def _texto_sistema_lineal(self, sistema):
-        """Texto para sistema lineal homogéneo"""
-        texto = "   ANÁLISIS DEL SISTEMA DINÁMICO 2D\n"
-        texto += "═" * 50 + "\n\n"
-        
-        texto += "Matriz A:\n"
-        texto += f"  ⎡ {sistema.A[0,0]:8.4f}  {sistema.A[0,1]:8.4f} ⎤\n"
-        texto += f"  ⎣ {sistema.A[1,0]:8.4f}  {sistema.A[1,1]:8.4f} ⎦\n\n"
-        
-        texto += f"Determinante: {sistema.determinante:.6f}\n"
-        texto += f"Traza:        {sistema.traza:.6f}\n\n"
-        
-        texto += self._texto_autovalores(sistema)
-        texto += self._texto_autovectores(sistema)
-        
-        tipo, estab = sistema.clasificar_punto_equilibrio()
-        texto += f"\nCLASIFICACIÓN:\n"
-        texto += f"  Tipo:        {tipo}\n"
-        texto += f"  Estabilidad: {estab}\n"
-        
-        return texto
-    
-    def _texto_autovalores(self, sistema):
-        """Genera texto de autovalores"""
-        texto = "─" * 50 + "\n\n"
-        texto += "Autovalores:\n"
-        for i, autoval in enumerate(sistema.autovalores, 1):
-            if np.iscomplex(autoval):
-                texto += f"  λ{i} = {autoval.real:.6f} + {autoval.imag:.6f}i\n"
-            else:
-                texto += f"  λ{i} = {autoval.real:.6f}\n"
-        return texto + "\n"
-    
-    def _texto_autovectores(self, sistema):
-        """Genera texto de autovectores"""
-        texto = "─" * 50 + "\n\n"
-        texto += "Autovectores:\n"
-        for i in range(2):
-            autovec = sistema.autovectores[:, i]
-            if np.iscomplex(autovec[0]):
-                texto += f"  v{i+1} = [{autovec[0].real:.4f} + {autovec[0].imag:.4f}i,\n"
-                texto += f"        {autovec[1].real:.4f} + {autovec[1].imag:.4f}i]ᵀ\n"
-            else:
-                texto += f"  v{i+1} = [{autovec[0].real:.6f},\n"
-                texto += f"        {autovec[1].real:.6f}]ᵀ\n"
-        return texto + "\n"
     
     def on_canvas_click(self, event):
         """Maneja clics en la gráfica para agregar trayectorias"""
