@@ -1,10 +1,10 @@
 """
-Archivo principal para ejecutar la aplicación de Sistemas Dinámicos 2D
+Archivo principal para ejecutar la aplicación de Sistemas Dinámicos
 Punto de entrada único de la aplicación
 """
 
 import tkinter as tk
-from gui.interfaz import InterfazGrafica
+from gui.main_interface import InterfazPrincipal
 
 
 def main():
@@ -12,7 +12,7 @@ def main():
     Función principal que inicia la aplicación
     """
     root = tk.Tk()
-    app = InterfazGrafica(root)
+    app = InterfazPrincipal(root)
     root.mainloop()
 
 

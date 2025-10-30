@@ -20,19 +20,27 @@ from input_module.ejemplos import EJEMPLOS_LINEALES, EJEMPLOS_NO_LINEALES
 
 
 class InterfazGrafica:
-    """Interfaz gráfica principal de la aplicación"""
+    """Interfaz gráfica del módulo sistemas 2D"""
     
     def __init__(self, root):
         """
         Inicializa la interfaz gráfica
         
         Parámetros:
-        - root: ventana raíz de tkinter
+        - root: ventana raíz o frame principal de tkinter
         """
         self.root = root
-        self.root.title("Sistemas Dinámicos 2D - Análisis Completo")
-        self.root.geometry("1400x800")
-        self.root.configure(bg=COLORES['fondo'])
+        
+        # Configurar solo si es ventana principal
+        if isinstance(root, tk.Tk):
+            self.root.title("Sistemas Dinámicos 2D - Análisis Completo")
+            self.root.geometry("1400x800")
+            self.root.configure(bg=COLORES['fondo'])
+        else:
+            # Si es un frame de tk, configurar con bg
+            if isinstance(root, tk.Frame):
+                root.configure(bg=COLORES['fondo'])
+            # Si es ttk.Frame, no configurar bg (usa estilos)
         
         # Configurar estilos
         configurar_estilos_ttk()
@@ -40,11 +48,19 @@ class InterfazGrafica:
         # Variables de control
         self._inicializar_variables()
         
-        # Crear interfaz
-        self.crear_widgets()
-        
-        # Analizar sistema inicial
-        self.analizar_sistema()
+        # No crear widgets aquí si se usa como módulo
+        # Se crearán cuando se llame a crear_widgets()
+    
+    def _obtener_ventana_root(self):
+        """Obtiene la ventana root del widget actual"""
+        widget = self.root
+        while not isinstance(widget, tk.Tk):
+            widget = widget.master
+        return widget
+    
+    def _usar_grid(self):
+        """Determina si se debe usar grid o pack según el tipo de root"""
+        return isinstance(self.root, tk.Tk)
     
     def _inicializar_variables(self):
         """Inicializa todas las variables de control de la UI"""
@@ -71,24 +87,46 @@ class InterfazGrafica:
     
     def crear_widgets(self):
         """Crea la estructura principal de widgets"""
-        main_frame = ttk.Frame(self.root, padding="10")
-        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        # Usar grid si es ventana Tk, pack si es frame
+        if isinstance(self.root, tk.Tk):
+            main_frame = ttk.Frame(self.root, padding="10")
+            main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+            self.root.columnconfigure(0, weight=1)
+            self.root.rowconfigure(0, weight=1)
+            main_frame.columnconfigure(1, weight=1)
+            main_frame.rowconfigure(0, weight=1)
+            
+            # Panel izquierdo (controles)
+            self._crear_panel_izquierdo(main_frame)
+            
+            # Panel derecho (gráfica)
+            self._crear_panel_derecho(main_frame)
+        else:
+            # Modo frame: usar pack en todo
+            main_frame = ttk.Frame(self.root, padding="10")
+            main_frame.pack(fill=tk.BOTH, expand=True)
+            
+            # Panel izquierdo y derecho lado a lado con pack
+            left_container = ttk.Frame(main_frame)
+            left_container.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 5))
+            
+            right_container = ttk.Frame(main_frame)
+            right_container.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+            
+            self._crear_panel_izquierdo(left_container)
+            self._crear_panel_derecho(right_container)
         
-        self.root.columnconfigure(0, weight=1)
-        self.root.rowconfigure(0, weight=1)
-        main_frame.columnconfigure(1, weight=1)
-        main_frame.rowconfigure(0, weight=1)
-        
-        # Panel izquierdo (controles)
-        self._crear_panel_izquierdo(main_frame)
-        
-        # Panel derecho (gráfica)
-        self._crear_panel_derecho(main_frame)
+        # Analizar sistema inicial
+        self.analizar_sistema()
     
     def _crear_panel_izquierdo(self, parent):
         """Crea panel de controles izquierdo"""
         left_frame = ttk.Frame(parent, padding="5")
-        left_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(0, 5))
+        
+        if isinstance(self.root, tk.Tk):
+            left_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(0, 5))
+        else:
+            left_frame.pack(fill=tk.BOTH, expand=True, padx=(0, 5))
         
         # Título
         self._crear_seccion_titulo(left_frame)
@@ -152,7 +190,8 @@ class InterfazGrafica:
                  background='white').grid(row=1, column=3, rowspan=2)
         
         # Entradas
-        vcmd = (self.root.register(self.validar_numero), '%P')
+        ventana_root = self._obtener_ventana_root()
+        vcmd = (ventana_root.register(self.validar_numero), '%P')
         
         entries = [
             (self.a11_var, 1, 1, "a₁₁"),
@@ -335,7 +374,11 @@ class InterfazGrafica:
     def _crear_panel_derecho(self, parent):
         """Crea panel derecho con gráfica"""
         right_frame = ttk.Frame(parent, style='Card.TFrame', padding="15")
-        right_frame.grid(row=0, column=1, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        if isinstance(self.root, tk.Tk):
+            right_frame.grid(row=0, column=1, sticky=(tk.W, tk.E, tk.N, tk.S))
+        else:
+            right_frame.pack(fill=tk.BOTH, expand=True, side=tk.RIGHT)
         
         ttk.Label(right_frame, text="Visualización del Sistema",
                  style='Title.TLabel').grid(row=0, column=0, pady=(0, 10))
