@@ -324,7 +324,6 @@ class InterfazGrafica:
                                      textvariable=self.coef1_var,
                                      width=8, justify='center')
         self.entry_coef1.grid(row=1, column=1, pady=5, padx=(5, 0))
-        self.entry_coef1.bind('<KeyRelease>', lambda e: self._actualizar_forzado())
         
         ttk.Label(self.forzado_controls, text="f₂:", background='white').grid(
             row=1, column=2, sticky=tk.W, pady=5, padx=(10, 0))
@@ -332,7 +331,6 @@ class InterfazGrafica:
                                      textvariable=self.coef2_var,
                                      width=8, justify='center')
         self.entry_coef2.grid(row=1, column=3, pady=5, padx=(5, 0))
-        self.entry_coef2.bind('<KeyRelease>', lambda e: self._actualizar_forzado())
         
         # Parámetro
         self.label_param = tk.Label(self.forzado_controls, text="(no aplica)", 
@@ -343,7 +341,6 @@ class InterfazGrafica:
                                      width=8, justify='center',
                                      state='disabled')
         self.entry_param.grid(row=2, column=1, pady=5, padx=(5, 0))
-        self.entry_param.bind('<KeyRelease>', lambda e: self._actualizar_forzado())
         
         # Fórmula
         self.label_formula = tk.Label(self.forzado_controls, 
@@ -352,6 +349,12 @@ class InterfazGrafica:
                                       font=FUENTES['monoespaciada'],
                                       foreground='#0066cc')
         self.label_formula.grid(row=3, column=0, columnspan=4, pady=(10, 0))
+        
+        # Botón Aplicar
+        btn_aplicar = ttk.Button(self.forzado_controls, text="Aplicar Término Forzado",
+                                style='Accent.TButton',
+                                command=self.aplicar_termino_forzado)
+        btn_aplicar.grid(row=4, column=0, columnspan=4, pady=(15, 0), sticky=(tk.W, tk.E))
         
         self.forzado_controls.grid_remove()
         self.forzado_frame.grid_remove()
@@ -463,7 +466,7 @@ class InterfazGrafica:
                 self.analizar_sistema()
     
     def _actualizar_forzado(self):
-        """Actualiza parámetro, fórmula y analiza sistema"""
+        """Actualiza parámetro y fórmula sin analizar"""
         tipo = self.tipo_forzado.get()
         
         # Actualizar estado del parámetro
@@ -495,8 +498,10 @@ class InterfazGrafica:
             self.label_formula.config(text=formula)
         except:
             pass
-        
-        # Analizar sistema con nuevo término forzado
+    
+    def aplicar_termino_forzado(self):
+        """Aplica el término forzado y actualiza la gráfica"""
+        self._actualizar_forzado()
         if self.modo_funcion.get():
             self.analizar_sistema()
     
@@ -588,7 +593,6 @@ class InterfazGrafica:
                     'coef2': float(self.coef2_var.get() or 0),
                     'param': float(self.param_var.get() or 1)
                 }
-                self.actualizar_formula_forzado()
             
             return SistemaDinamico2D(matriz, termino_forzado)
         except ValueError:

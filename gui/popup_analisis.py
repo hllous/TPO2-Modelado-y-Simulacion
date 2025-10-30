@@ -65,6 +65,10 @@ class VentanaAnalisisPopup:
                   command=self._mostrar_clasificacion).pack(
             side=tk.LEFT, padx=5)
         
+        ttk.Button(controles, text="Análisis Personalizado",
+                  command=self._mostrar_analisis_personalizado).pack(
+            side=tk.LEFT, padx=5)
+        
         ttk.Button(controles, text="Cerrar",
                   command=self.popup.destroy).pack(
             side=tk.RIGHT, padx=5)
@@ -318,3 +322,192 @@ class VentanaAnalisisPopup:
         texto += f"  Estabilidad:        {estab}\n"
         
         self.text_widget.insert(1.0, texto)
+    
+    def _mostrar_analisis_personalizado(self):
+        """Muestra análisis paso a paso para valores personalizados"""
+        self.text_widget.delete(1.0, tk.END)
+        
+        texto = "╔" + "═" * 58 + "╗\n"
+        texto += "║  ANÁLISIS PERSONALIZADO - PASO A PASO                   ║\n"
+        texto += "╚" + "═" * 58 + "╝\n\n"
+        
+        texto += "Ingrese una matriz personalizada o modifique la actual.\n"
+        texto += "Este análisis muestra todos los pasos del cálculo.\n\n"
+        
+        if self.sistema.funcion_personalizada:
+            texto += "📝 SISTEMA ACTUAL (Personalizado)\n"
+            texto += "─" * 60 + "\n\n"
+            texto += f"dx₁/dt = {self.sistema.funcion_personalizada['f1']}\n"
+            texto += f"dx₂/dt = {self.sistema.funcion_personalizada['f2']}\n\n"
+            texto += "⚠️  Para un análisis lineal, convierta a funciones\n"
+            texto += "   lineales o use la pestaña de matriz.\n"
+            self.text_widget.insert(1.0, texto)
+            return
+        
+        texto += "📊 MATRIX ACTUAL\n"
+        texto += "─" * 60 + "\n\n"
+        
+        a11, a12 = self.sistema.A[0, 0], self.sistema.A[0, 1]
+        a21, a22 = self.sistema.A[1, 0], self.sistema.A[1, 1]
+        
+        texto += "       ⎡                ⎤\n"
+        texto += f"   A = ⎢ {a11:8.4f}  {a12:8.4f} ⎥\n"
+        texto += "       ⎢                ⎥\n"
+        texto += f"       ⎣ {a21:8.4f}  {a22:8.4f} ⎦\n\n"
+        
+        texto += self._generar_paso_traza_determinante()
+        texto += self._generar_paso_polinomio_caracteristico()
+        texto += self._generar_paso_discriminante()
+        texto += self._generar_paso_autovalores()
+        texto += self._generar_paso_clasificacion()
+        
+        self.text_widget.insert(1.0, texto)
+    
+    def _generar_paso_traza_determinante(self):
+        """Genera paso 1: Cálculo de traza y determinante"""
+        texto = "PASO 1: CÁLCULO DE TRAZA Y DETERMINANTE\n"
+        texto += "─" * 60 + "\n\n"
+        
+        a11, a12 = self.sistema.A[0, 0], self.sistema.A[0, 1]
+        a21, a22 = self.sistema.A[1, 0], self.sistema.A[1, 1]
+        
+        texto += f"Traza = a₁₁ + a₂₂ = {a11:.4f} + {a22:.4f} = {self.sistema.traza:.6f}\n\n"
+        
+        det_calc = a11 * a22 - a12 * a21
+        texto += f"Determinante = a₁₁·a₂₂ - a₁₂·a₂₁\n"
+        texto += f"             = {a11:.4f}·{a22:.4f} - {a12:.4f}·{a21:.4f}\n"
+        texto += f"             = {a11*a22:.4f} - {a12*a21:.4f}\n"
+        texto += f"             = {det_calc:.6f}\n\n"
+        
+        return texto
+    
+    def _generar_paso_polinomio_caracteristico(self):
+        """Genera paso 2: Polinomio característico"""
+        texto = "PASO 2: POLINOMIO CARACTERÍSTICO\n"
+        texto += "─" * 60 + "\n\n"
+        
+        texto += "El polinomio característico es:\n"
+        texto += "    p(λ) = λ² - (tr A)·λ + det(A)\n"
+        texto += f"    p(λ) = λ² - ({self.sistema.traza:.6f})·λ + ({self.sistema.determinante:.6f})\n\n"
+        
+        return texto
+    
+    def _generar_paso_discriminante(self):
+        """Genera paso 3: Discriminante"""
+        texto = "PASO 3: CÁLCULO DEL DISCRIMINANTE\n"
+        texto += "─" * 60 + "\n\n"
+        
+        traza = self.sistema.traza
+        det = self.sistema.determinante
+        discriminante = traza**2 - 4*det
+        
+        texto += "El discriminante determina la naturaleza de los autovalores:\n"
+        texto += "    Δ = (tr A)² - 4·det(A)\n"
+        texto += f"    Δ = ({traza:.6f})² - 4·({det:.6f})\n"
+        texto += f"    Δ = {traza**2:.6f} - {4*det:.6f}\n"
+        texto += f"    Δ = {discriminante:.6f}\n\n"
+        
+        if discriminante > 0:
+            texto += "✓ Δ > 0 → Autovalores REALES Y DISTINTOS\n"
+        elif discriminante == 0:
+            texto += "✓ Δ = 0 → Autovalores REALES E IGUALES (repetido)\n"
+        else:
+            texto += "✓ Δ < 0 → Autovalores COMPLEJOS CONJUGADOS\n"
+        
+        texto += "\n"
+        return texto
+    
+    def _generar_paso_autovalores(self):
+        """Genera paso 4: Cálculo de autovalores"""
+        texto = "PASO 4: CÁLCULO DE AUTOVALORES\n"
+        texto += "─" * 60 + "\n\n"
+        
+        traza = self.sistema.traza
+        det = self.sistema.determinante
+        discriminante = traza**2 - 4*det
+        
+        texto += "Usando la fórmula cuadrática: λ = (tr A ± √Δ) / 2\n\n"
+        
+        if discriminante >= 0:
+            sqrt_disc = np.sqrt(abs(discriminante))
+            lambda1 = (traza + sqrt_disc) / 2
+            lambda2 = (traza - sqrt_disc) / 2
+            
+            texto += f"√Δ = √({discriminante:.6f}) = {sqrt_disc:.6f}\n\n"
+            texto += f"λ₁ = ({traza:.6f} + {sqrt_disc:.6f}) / 2 = {lambda1:.6f}\n"
+            texto += f"λ₂ = ({traza:.6f} - {sqrt_disc:.6f}) / 2 = {lambda2:.6f}\n\n"
+        else:
+            sqrt_disc = np.sqrt(abs(discriminante))
+            real_part = traza / 2
+            imag_part = sqrt_disc / 2
+            
+            texto += f"√Δ = √({discriminante:.6f}) = {imag_part:.6f}i\n\n"
+            texto += f"λ₁ = {real_part:.6f} + {imag_part:.6f}i\n"
+            texto += f"λ₂ = {real_part:.6f} - {imag_part:.6f}i\n\n"
+        
+        return texto
+    
+    def _generar_paso_clasificacion(self):
+        """Genera paso 5: Clasificación del punto de equilibrio"""
+        texto = "PASO 5: CLASIFICACIÓN DEL PUNTO DE EQUILIBRIO\n"
+        texto += "─" * 60 + "\n\n"
+        
+        lambda1, lambda2 = self.sistema.autovalores
+        traza = self.sistema.traza
+        det = self.sistema.determinante
+        
+        texto += "Criterio basado en la posición en el plano (tr A, det A):\n\n"
+        
+        # Análisis de estabilidad
+        if np.iscomplex(lambda1):
+            # Complejos
+            real_part = lambda1.real
+            imag_part = lambda1.imag
+            
+            if abs(real_part) < 1e-10:
+                texto += "📍 Posición: CENTRO\n"
+                texto += f"   Parte real: {real_part:.6f} ≈ 0\n"
+                texto += f"   Parte imaginaria: ±{imag_part:.6f}i\n"
+                texto += "   Comportamiento: Órbitas cerradas (neutral)\n"
+            elif real_part < 0:
+                texto += "📍 Posición: ESPIRAL ESTABLE (Foco)\n"
+                texto += f"   Parte real: {real_part:.6f} < 0\n"
+                texto += f"   Parte imaginaria: ±{imag_part:.6f}i\n"
+                texto += "   Comportamiento: Converge en espiral hacia el origen\n"
+            else:
+                texto += "📍 Posición: ESPIRAL INESTABLE (Foco)\n"
+                texto += f"   Parte real: {real_part:.6f} > 0\n"
+                texto += f"   Parte imaginaria: ±{imag_part:.6f}i\n"
+                texto += "   Comportamiento: Diverge en espiral desde el origen\n"
+        else:
+            # Reales
+            if det < 0:
+                texto += "📍 Posición: PUNTO SILLA\n"
+                texto += f"   λ₁ = {lambda1.real:.6f} (signo +)\n"
+                texto += f"   λ₂ = {lambda2.real:.6f} (signo -)\n"
+                texto += "   Comportamiento: Inestable (diverge en una dirección)\n"
+            elif det > 0:
+                if traza < 0:
+                    texto += "📍 Posición: NODO ESTABLE\n"
+                    texto += f"   λ₁ = {lambda1.real:.6f} < 0\n"
+                    texto += f"   λ₂ = {lambda2.real:.6f} < 0\n"
+                    texto += "   Comportamiento: Estable (atractor)\n"
+                elif traza > 0:
+                    texto += "📍 Posición: NODO INESTABLE\n"
+                    texto += f"   λ₁ = {lambda1.real:.6f} > 0\n"
+                    texto += f"   λ₂ = {lambda2.real:.6f} > 0\n"
+                    texto += "   Comportamiento: Inestable (repulsor)\n"
+                else:
+                    texto += "📍 Posición: CASO ESPECIAL\n"
+                    texto += "   tr(A) = 0 pero det(A) > 0\n"
+                    texto += "   Comportamiento: Centro lineal\n"
+            else:
+                texto += "📍 Posición: DEGENERADO\n"
+                texto += "   Autovalor cero detectado\n"
+                texto += "   Comportamiento: Caso especial - requiere análisis adicional\n"
+        
+        tipo, estab = self.sistema.clasificar_punto_equilibrio()
+        texto += f"\n✅ Clasificación Final: {tipo}\n"
+        texto += f"   Estabilidad: {estab}\n"
+        
+        return texto
