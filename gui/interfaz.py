@@ -17,6 +17,7 @@ from visualization.plotter import integrate_trajectory_limited
 from ui.widgets import ToolTip
 from ui.estilos import configurar_estilos_ttk, COLORES, FUENTES
 from input_module.ejemplos import EJEMPLOS_LINEALES, EJEMPLOS_NO_LINEALES
+from gui.popup_analisis import VentanaAnalisisPopup
 
 
 class InterfazGrafica:
@@ -255,15 +256,33 @@ class InterfazGrafica:
                                  command=self.analizar_sistema)
         btn_analizar.grid(row=4, column=0, columnspan=2, pady=(15, 0), sticky=(tk.W, tk.E))
         
-        # Ejemplos rápidos
+        # Ejemplos rápidos en dos columnas
         ttk.Label(self.funciones_frame, text="Ejemplos Rápidos:",
                  style='Title.TLabel').grid(row=5, column=0, columnspan=2, pady=(15, 5))
         
-        for i, (clave, datos) in enumerate(EJEMPLOS_NO_LINEALES.items()):
+        ejemplos_col0 = [
+            (k, v) for k, v in EJEMPLOS_NO_LINEALES.items() 
+            if v.get('columna', 0) == 0
+        ]
+        ejemplos_col1 = [
+            (k, v) for k, v in EJEMPLOS_NO_LINEALES.items() 
+            if v.get('columna', 1) == 1
+        ]
+        
+        for i, (clave, datos) in enumerate(ejemplos_col0):
             btn = ttk.Button(self.funciones_frame, text=datos['nombre'],
                            command=lambda f1=datos['f1'], f2=datos['f2']: 
                            self.cargar_funcion(f1, f2))
-            btn.grid(row=6+i//2, column=i%2, pady=2, padx=2, sticky=(tk.W, tk.E))
+            btn.grid(row=6+i, column=0, pady=2, padx=(0, 2), sticky=(tk.W, tk.E))
+        
+        for i, (clave, datos) in enumerate(ejemplos_col1):
+            btn = ttk.Button(self.funciones_frame, text=datos['nombre'],
+                           command=lambda f1=datos['f1'], f2=datos['f2']: 
+                           self.cargar_funcion(f1, f2))
+            btn.grid(row=6+i, column=1, pady=2, padx=(2, 0), sticky=(tk.W, tk.E))
+        
+        self.funciones_frame.columnconfigure(0, weight=1)
+        self.funciones_frame.columnconfigure(1, weight=1)
         
         # Ocultar inicialmente
         self.funciones_frame.grid_remove()
@@ -332,17 +351,35 @@ class InterfazGrafica:
         self.forzado_controls.grid_remove()
     
     def _crear_ejemplos(self, parent):
-        """Crea frame de ejemplos predefinidos"""
+        """Crea frame de ejemplos predefinidos en dos columnas"""
         ejemplos_frame = ttk.Frame(parent, style='Card.TFrame', padding="15")
         ejemplos_frame.grid(row=4, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
         
         ttk.Label(ejemplos_frame, text="Ejemplos Predefinidos",
                  style='Title.TLabel').grid(row=0, column=0, columnspan=2, pady=(0, 10))
         
-        for i, (clave, datos) in enumerate(EJEMPLOS_LINEALES.items()):
+        # Agrupar ejemplos por columna
+        ejemplos_col0 = [
+            (k, v) for k, v in EJEMPLOS_LINEALES.items() 
+            if v.get('columna', 0) == 0
+        ]
+        ejemplos_col1 = [
+            (k, v) for k, v in EJEMPLOS_LINEALES.items() 
+            if v.get('columna', 1) == 1
+        ]
+        
+        for i, (clave, datos) in enumerate(ejemplos_col0):
             btn = ttk.Button(ejemplos_frame, text=datos['nombre'],
                            command=lambda m=datos['matriz']: self.cargar_ejemplo(m))
-            btn.grid(row=i+1, column=0, columnspan=2, pady=2, sticky=(tk.W, tk.E))
+            btn.grid(row=i+1, column=0, pady=2, padx=(0, 2), sticky=(tk.W, tk.E))
+        
+        for i, (clave, datos) in enumerate(ejemplos_col1):
+            btn = ttk.Button(ejemplos_frame, text=datos['nombre'],
+                           command=lambda m=datos['matriz']: self.cargar_ejemplo(m))
+            btn.grid(row=i+1, column=1, pady=2, padx=(2, 0), sticky=(tk.W, tk.E))
+        
+        ejemplos_frame.columnconfigure(0, weight=1)
+        ejemplos_frame.columnconfigure(1, weight=1)
     
     def _crear_resultados(self, parent):
         """Crea frame de resultados"""
@@ -350,8 +387,18 @@ class InterfazGrafica:
         resultados_frame.grid(row=5, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         parent.rowconfigure(5, weight=1)
         
-        ttk.Label(resultados_frame, text="Resultados del Análisis",
-                 style='Title.TLabel').grid(row=0, column=0, sticky=tk.W, pady=(0, 10))
+        # Header con botón
+        header_frame = ttk.Frame(resultados_frame)
+        header_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        resultados_frame.columnconfigure(0, weight=1)
+        
+        ttk.Label(header_frame, text="Resultados del Análisis",
+                 style='Title.TLabel').pack(side=tk.LEFT)
+        
+        self.btn_analisis_detallado = ttk.Button(
+            header_frame, text="📊 Ver Análisis Detallado",
+            command=self.mostrar_analisis_popup)
+        self.btn_analisis_detallado.pack(side=tk.RIGHT, padx=5)
         
         text_frame = ttk.Frame(resultados_frame)
         text_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
@@ -704,3 +751,15 @@ class InterfazGrafica:
             grapher = Grapher(self.sistema_actual)
             grapher.crear_grafica(self.ax)
             self.canvas.draw()
+    
+    def mostrar_analisis_popup(self):
+        """Abre ventana popup con análisis detallado"""
+        if self.sistema_actual:
+            try:
+                ventana_root = self._obtener_ventana_root()
+                VentanaAnalisisPopup(ventana_root, self.sistema_actual)
+            except Exception as e:
+                messagebox.showerror("Error", f"Error al abrir análisis:\n{str(e)}")
+        else:
+            messagebox.showwarning("Advertencia", 
+                                 "Por favor analice un sistema primero")
