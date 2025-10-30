@@ -16,7 +16,7 @@ from visualization.grapher import Grapher
 from visualization.plotter import integrate_trajectory_limited
 from ui.widgets import ToolTip
 from ui.estilos import configurar_estilos_ttk, COLORES, FUENTES
-from input_module.ejemplos import EJEMPLOS_LINEALES, EJEMPLOS_NO_LINEALES
+from input_module.ejemplos import EJEMPLOS_LINEALES
 from gui.popup_analisis import VentanaAnalisisPopup
 
 
@@ -141,10 +141,10 @@ class InterfazGrafica:
         # Entrada de funciones
         self._crear_entrada_funciones(left_frame)
         
-        # Término forzado
+        # Término forzado (solo en modo matriz)
         self._crear_termino_forzado(left_frame)
         
-        # Ejemplos
+        # Ejemplos (solo en modo matriz)
         self._crear_ejemplos(left_frame)
         
         # Resultados
@@ -231,7 +231,6 @@ class InterfazGrafica:
         self.entry_f1 = ttk.Entry(self.funciones_frame, textvariable=self.f1_expr,
                                   width=30, font=FUENTES['monoespaciada'])
         self.entry_f1.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=5)
-        self.entry_f1.bind('<KeyRelease>', lambda e: self.analizar_sistema())
         
         # Entrada dy/dt
         ttk.Label(self.funciones_frame, text="dx₂/dt =", 
@@ -241,7 +240,6 @@ class InterfazGrafica:
         self.entry_f2 = ttk.Entry(self.funciones_frame, textvariable=self.f2_expr,
                                   width=30, font=FUENTES['monoespaciada'])
         self.entry_f2.grid(row=2, column=1, sticky=(tk.W, tk.E), pady=5)
-        self.entry_f2.bind('<KeyRelease>', lambda e: self.analizar_sistema())
         
         self.funciones_frame.columnconfigure(1, weight=1)
         
@@ -253,35 +251,10 @@ class InterfazGrafica:
             row=3, column=0, columnspan=2, pady=(10, 0), sticky=tk.W)
         
         # Botón analizar
-        btn_analizar = ttk.Button(self.funciones_frame, text="Analizar Sistema",
+        btn_analizar = ttk.Button(self.funciones_frame, text="Analizar Función",
                                  style='Accent.TButton',
                                  command=self.analizar_sistema)
         btn_analizar.grid(row=4, column=0, columnspan=2, pady=(15, 0), sticky=(tk.W, tk.E))
-        
-        # Ejemplos rápidos en dos columnas
-        ttk.Label(self.funciones_frame, text="Ejemplos Rápidos:",
-                 style='Title.TLabel').grid(row=5, column=0, columnspan=2, pady=(15, 5))
-        
-        ejemplos_col0 = [
-            (k, v) for k, v in EJEMPLOS_NO_LINEALES.items() 
-            if v.get('columna', 0) == 0
-        ]
-        ejemplos_col1 = [
-            (k, v) for k, v in EJEMPLOS_NO_LINEALES.items() 
-            if v.get('columna', 1) == 1
-        ]
-        
-        for i, (clave, datos) in enumerate(ejemplos_col0):
-            btn = ttk.Button(self.funciones_frame, text=datos['nombre'],
-                           command=lambda f1=datos['f1'], f2=datos['f2']: 
-                           self.cargar_funcion(f1, f2))
-            btn.grid(row=6+i, column=0, pady=2, padx=(0, 2), sticky=(tk.W, tk.E))
-        
-        for i, (clave, datos) in enumerate(ejemplos_col1):
-            btn = ttk.Button(self.funciones_frame, text=datos['nombre'],
-                           command=lambda f1=datos['f1'], f2=datos['f2']: 
-                           self.cargar_funcion(f1, f2))
-            btn.grid(row=6+i, column=1, pady=2, padx=(2, 0), sticky=(tk.W, tk.E))
         
         self.funciones_frame.columnconfigure(0, weight=1)
         self.funciones_frame.columnconfigure(1, weight=1)
@@ -290,7 +263,7 @@ class InterfazGrafica:
         self.funciones_frame.grid_remove()
     
     def _crear_termino_forzado(self, parent):
-        """Crea frame para término forzado (solo en modo función)"""
+        """Crea frame para término forzado (solo en modo matriz)"""
         self.forzado_frame = ttk.Frame(parent, style='Card.TFrame', padding="15")
         self.forzado_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
         
@@ -360,11 +333,11 @@ class InterfazGrafica:
         self.forzado_frame.grid_remove()
     
     def _crear_ejemplos(self, parent):
-        """Crea frame de ejemplos predefinidos en dos columnas"""
-        ejemplos_frame = ttk.Frame(parent, style='Card.TFrame', padding="15")
-        ejemplos_frame.grid(row=4, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        """Crea frame de ejemplos predefinidos en dos columnas (solo modo matriz)"""
+        self.ejemplos_frame = ttk.Frame(parent, style='Card.TFrame', padding="15")
+        self.ejemplos_frame.grid(row=4, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
         
-        ttk.Label(ejemplos_frame, text="Ejemplos Predefinidos",
+        ttk.Label(self.ejemplos_frame, text="Ejemplos Predefinidos",
                  style='Title.TLabel').grid(row=0, column=0, columnspan=2, pady=(0, 10))
         
         # Agrupar ejemplos por columna
@@ -378,17 +351,17 @@ class InterfazGrafica:
         ]
         
         for i, (clave, datos) in enumerate(ejemplos_col0):
-            btn = ttk.Button(ejemplos_frame, text=datos['nombre'],
+            btn = ttk.Button(self.ejemplos_frame, text=datos['nombre'],
                            command=lambda m=datos['matriz']: self.cargar_ejemplo(m))
             btn.grid(row=i+1, column=0, pady=2, padx=(0, 2), sticky=(tk.W, tk.E))
         
         for i, (clave, datos) in enumerate(ejemplos_col1):
-            btn = ttk.Button(ejemplos_frame, text=datos['nombre'],
+            btn = ttk.Button(self.ejemplos_frame, text=datos['nombre'],
                            command=lambda m=datos['matriz']: self.cargar_ejemplo(m))
             btn.grid(row=i+1, column=1, pady=2, padx=(2, 0), sticky=(tk.W, tk.E))
         
-        ejemplos_frame.columnconfigure(0, weight=1)
-        ejemplos_frame.columnconfigure(1, weight=1)
+        self.ejemplos_frame.columnconfigure(0, weight=1)
+        self.ejemplos_frame.columnconfigure(1, weight=1)
     
     def _crear_resultados(self, parent):
         """Crea frame de resultados (solo botón, análisis en popup)"""
@@ -445,15 +418,19 @@ class InterfazGrafica:
     def cambiar_modo(self):
         """Cambia entre modo matriz y modo función"""
         if self.modo_funcion.get():
+            # Modo funciones: ocultar matriz, ejemplos y término forzado
             self.matriz_frame.grid_remove()
-            self.funciones_frame.grid()
-            self.forzado_frame.grid()
-        else:
-            self.funciones_frame.grid_remove()
+            self.ejemplos_frame.grid_remove()
             self.forzado_frame.grid_remove()
-            self.matriz_frame.grid()
+            self.funciones_frame.grid()
             self.usar_forzado.set(False)
-        self.toggle_forzado()
+        else:
+            # Modo matriz: mostrar matriz, ejemplos y término forzado
+            self.funciones_frame.grid_remove()
+            self.matriz_frame.grid()
+            self.ejemplos_frame.grid()
+            self.forzado_frame.grid()
+        self.analizar_sistema()
     
     def toggle_forzado(self):
         """Muestra/oculta controles del término forzado y analiza"""
@@ -462,8 +439,7 @@ class InterfazGrafica:
             self._actualizar_forzado()
         else:
             self.forzado_controls.grid_remove()
-            if self.modo_funcion.get():
-                self.analizar_sistema()
+            self.analizar_sistema()
     
     def _actualizar_forzado(self):
         """Actualiza parámetro y fórmula sin analizar"""
@@ -502,13 +478,6 @@ class InterfazGrafica:
     def aplicar_termino_forzado(self):
         """Aplica el término forzado y actualiza la gráfica"""
         self._actualizar_forzado()
-        if self.modo_funcion.get():
-            self.analizar_sistema()
-    
-    def cargar_funcion(self, f1, f2):
-        """Carga un ejemplo de función"""
-        self.f1_expr.set(f1)
-        self.f2_expr.set(f2)
         self.analizar_sistema()
     
     def cargar_ejemplo(self, matriz):
@@ -519,7 +488,6 @@ class InterfazGrafica:
         self.a22_var.set(str(matriz[1][1]))
         self.usar_forzado.set(False)
         self.toggle_forzado()
-        self.analizar_sistema()
     
     def validar_numero(self, valor):
         """Valida que el input sea un número"""
