@@ -244,7 +244,8 @@ class InterfazGrafica:
         self.funciones_frame.columnconfigure(1, weight=1)
         
         # Ayuda
-        ayuda_text = "Variables: x, y, t | Funciones: sin(), cos(), exp(), sqrt(), abs()"
+        ayuda_text = "Variables: x, y, t | Funciones: sin(), cos(), exp(), sqrt(), abs()\n"
+        ayuda_text += "Use 'sen' o 'sin' para seno, ambos son válidos"
         ttk.Label(self.funciones_frame, text=ayuda_text,
                  background='white', foreground=COLORES['texto_secundario'],
                  font=FUENTES['pequena'], wraplength=350).grid(
@@ -255,6 +256,26 @@ class InterfazGrafica:
                                  style='Accent.TButton',
                                  command=self.analizar_sistema)
         btn_analizar.grid(row=4, column=0, columnspan=2, pady=(15, 0), sticky=(tk.W, tk.E))
+        
+        # Ejemplos rápidos
+        ttk.Label(self.funciones_frame, text="Ejemplos Rápidos:",
+                 style='Title.TLabel').grid(row=5, column=0, columnspan=2, pady=(15, 5))
+        
+        ejemplos = [
+            ("Lineal simple", "-x", "-2*y"),
+            ("Con términos forzados", "-x + 2", "y + cos(t)"),
+            ("No lineal", "-x + y**2", "-y + x*y"),
+            ("Oscilador forzado", "-y", "x + sin(2*t)"),
+            ("Exponencial", "-x + exp(-t)", "-y + 0.5"),
+            ("Van der Pol", "y", "(1-x**2)*y - x"),
+        ]
+        
+        for i, (nombre, f1, f2) in enumerate(ejemplos):
+            row = 6 + i // 2
+            col = i % 2
+            btn = ttk.Button(self.funciones_frame, text=nombre,
+                           command=lambda f1=f1, f2=f2: self._cargar_ejemplo_funcion(f1, f2))
+            btn.grid(row=row, column=col, pady=2, padx=2, sticky=(tk.W, tk.E))
         
         self.funciones_frame.columnconfigure(0, weight=1)
         self.funciones_frame.columnconfigure(1, weight=1)
@@ -517,6 +538,12 @@ class InterfazGrafica:
         except Exception as e:
             messagebox.showerror("Error", f"Error al analizar el sistema:\n{str(e)}")
     
+    def _cargar_ejemplo_funcion(self, f1, f2):
+        """Carga un ejemplo de función"""
+        self.f1_expr.set(f1)
+        self.f2_expr.set(f2)
+        self.analizar_sistema()
+    
     def _crear_sistema_personalizado(self):
         """Crea sistema con funciones personalizadas"""
         f1 = self.f1_expr.get().strip()
@@ -525,6 +552,10 @@ class InterfazGrafica:
         if not f1 or not f2:
             messagebox.showwarning("Advertencia", "Por favor ingrese ambas funciones")
             return None
+        
+        # Normalizar nombres de funciones (sen -> sin)
+        f1 = f1.replace('sen', 'sin')
+        f2 = f2.replace('sen', 'sin')
         
         # Validar funciones
         try:
@@ -538,7 +569,8 @@ class InterfazGrafica:
             float(eval(f2, {"__builtins__": {}}, test_vars))
         except Exception as e:
             messagebox.showerror("Error en funciones", 
-                f"Error al evaluar:\n{str(e)}")
+                f"Error al evaluar:\n{str(e)}\n\nAsegúrese de usar la sintaxis correcta.\n"
+                f"Ejemplos: sin(x), cos(t), exp(-t)")
             return None
         
         return SistemaDinamico2D(

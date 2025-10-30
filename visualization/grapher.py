@@ -19,16 +19,20 @@ class Grapher:
         """
         self.sistema = sistema
     
-    def crear_grafica(self, ax, xlim=(-3, 3), ylim=(-3, 3), n_puntos=20):
+    def crear_grafica(self, ax, xlim=None, ylim=None, n_puntos=20):
         """
         Crea gráfica completa con campo de direcciones, autovectores y puntos de equilibrio
         
         Parámetros:
         - ax: eje de matplotlib
-        - xlim, ylim: límites de visualización
+        - xlim, ylim: límites de visualización (auto si None)
         - n_puntos: resolución del campo de direcciones
         """
         ax.clear()
+        
+        # Calcular límites automáticos si no se especifican
+        if xlim is None or ylim is None:
+            xlim, ylim = self._calcular_limites_automaticos()
         
         # Calcular y dibujar campo de direcciones
         self._dibujar_campo_direcciones(ax, xlim, ylim, n_puntos)
@@ -44,6 +48,32 @@ class Grapher:
         
         # Agregar título
         self._agregar_titulo(ax)
+    
+    def _calcular_limites_automaticos(self):
+        """Calcula límites automáticos según el sistema"""
+        # Buscar puntos de equilibrio en un rango amplio
+        puntos_eq = self.sistema.encontrar_puntos_equilibrio((-10, 10), (-10, 10))
+        
+        if puntos_eq and len(puntos_eq) > 0:
+            # Centrar en puntos de equilibrio
+            xs = [p[0] for p in puntos_eq]
+            ys = [p[1] for p in puntos_eq]
+            
+            x_center = np.mean(xs)
+            y_center = np.mean(ys)
+            
+            # Rango basado en dispersión
+            x_range = max(abs(max(xs) - min(xs)), 3) * 1.5
+            y_range = max(abs(max(ys) - min(ys)), 3) * 1.5
+            
+            xlim = (x_center - x_range, x_center + x_range)
+            ylim = (y_center - y_range, y_center + y_range)
+        else:
+            # Límites por defecto
+            xlim = (-5, 5)
+            ylim = (-5, 5)
+        
+        return xlim, ylim
     
     def _dibujar_campo_direcciones(self, ax, xlim, ylim, n_puntos):
         """Dibuja el campo de direcciones (quiver plot)"""

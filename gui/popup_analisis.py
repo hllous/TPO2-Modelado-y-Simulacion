@@ -65,7 +65,7 @@ class VentanaAnalisisPopup:
                   command=self._mostrar_clasificacion).pack(
             side=tk.LEFT, padx=5)
         
-        ttk.Button(controles, text="Análisis Personalizado",
+        ttk.Button(controles, text="Análisis Paso a Paso",
                   command=self._mostrar_analisis_personalizado).pack(
             side=tk.LEFT, padx=5)
         
@@ -324,27 +324,127 @@ class VentanaAnalisisPopup:
         self.text_widget.insert(1.0, texto)
     
     def _mostrar_analisis_personalizado(self):
-        """Muestra análisis paso a paso para valores personalizados"""
+        """Muestra análisis paso a paso para sistemas personalizados"""
         self.text_widget.delete(1.0, tk.END)
         
         texto = "╔" + "═" * 58 + "╗\n"
-        texto += "║  ANÁLISIS PERSONALIZADO - PASO A PASO                   ║\n"
+        texto += "║  ANÁLISIS PASO A PASO                                   ║\n"
         texto += "╚" + "═" * 58 + "╝\n\n"
         
-        texto += "Ingrese una matriz personalizada o modifique la actual.\n"
-        texto += "Este análisis muestra todos los pasos del cálculo.\n\n"
-        
         if self.sistema.funcion_personalizada:
-            texto += "📝 SISTEMA ACTUAL (Personalizado)\n"
-            texto += "─" * 60 + "\n\n"
-            texto += f"dx₁/dt = {self.sistema.funcion_personalizada['f1']}\n"
-            texto += f"dx₂/dt = {self.sistema.funcion_personalizada['f2']}\n\n"
-            texto += "⚠️  Para un análisis lineal, convierta a funciones\n"
-            texto += "   lineales o use la pestaña de matriz.\n"
-            self.text_widget.insert(1.0, texto)
-            return
+            texto += self._analisis_paso_a_paso_funcion()
+        else:
+            texto += self._analisis_paso_a_paso_matriz()
         
-        texto += "📊 MATRIX ACTUAL\n"
+        self.text_widget.insert(1.0, texto)
+    
+    def _analisis_paso_a_paso_funcion(self):
+        """Análisis detallado para funciones personalizadas"""
+        texto = "📝 SISTEMA PERSONALIZADO - ANÁLISIS DETALLADO\n"
+        texto += "─" * 60 + "\n\n"
+        
+        f1 = self.sistema.funcion_personalizada['f1']
+        f2 = self.sistema.funcion_personalizada['f2']
+        
+        texto += "PASO 1: DEFINICIÓN DEL SISTEMA\n"
+        texto += "─" * 60 + "\n\n"
+        texto += "El sistema está definido por las ecuaciones diferenciales:\n\n"
+        texto += f"    dx₁/dt = f₁(x, y, t) = {f1}\n"
+        texto += f"    dx₂/dt = f₂(x, y, t) = {f2}\n\n"
+        
+        # Detectar si tiene términos forzados (dependencia de t)
+        tiene_t_f1 = 't' in f1
+        tiene_t_f2 = 't' in f2
+        
+        if tiene_t_f1 or tiene_t_f2:
+            texto += "⚠️  El sistema contiene términos dependientes del tiempo (t)\n"
+            texto += "   Esto indica un sistema NO AUTÓNOMO (forzado)\n\n"
+        else:
+            texto += "✓  El sistema es AUTÓNOMO (no depende explícitamente de t)\n\n"
+        
+        # Detectar no linealidad
+        texto += "\nPASO 2: CLASIFICACIÓN DEL SISTEMA\n"
+        texto += "─" * 60 + "\n\n"
+        
+        no_lineal_f1 = any(term in f1 for term in ['**', '*x', '*y', 'x*', 'y*', 'sin', 'cos', 'exp', 'sen'])
+        no_lineal_f2 = any(term in f2 for term in ['**', '*x', '*y', 'x*', 'y*', 'sin', 'cos', 'exp', 'sen'])
+        
+        if no_lineal_f1 or no_lineal_f2:
+            texto += "El sistema es NO LINEAL\n\n"
+            texto += "Indicadores de no linealidad detectados:\n"
+            if '**' in f1 or '**' in f2:
+                texto += "  • Potencias (x², y², etc.)\n"
+            if any(t in f1+f2 for t in ['*x*', '*y*', 'x*y', 'y*x']):
+                texto += "  • Productos cruzados (x·y)\n"
+            if any(t in f1+f2 for t in ['sin', 'cos', 'sen']):
+                texto += "  • Funciones trigonométricas\n"
+            if 'exp' in f1+f2:
+                texto += "  • Funciones exponenciales\n"
+        else:
+            texto += "El sistema es LINEAL\n\n"
+            texto += "Todas las expresiones son combinaciones lineales de x e y\n"
+        
+        # Evaluación en puntos de prueba
+        texto += "\n\nPASO 3: EVALUACIÓN EN PUNTOS DE PRUEBA\n"
+        texto += "─" * 60 + "\n\n"
+        
+        puntos_prueba = [(0, 0), (1, 0), (0, 1), (1, 1), (-1, -1)]
+        
+        texto += "Evaluando el sistema en diferentes puntos:\n\n"
+        for x_val, y_val in puntos_prueba:
+            try:
+                resultado = self.sistema.sistema_ecuaciones([x_val, y_val], 0)
+                texto += f"  En ({x_val:2}, {y_val:2}): "
+                texto += f"dx₁/dt = {resultado[0]:8.4f}, dx₂/dt = {resultado[1]:8.4f}\n"
+            except:
+                texto += f"  En ({x_val:2}, {y_val:2}): Error en evaluación\n"
+        
+        # Búsqueda de equilibrios
+        texto += "\n\nPASO 4: PUNTOS DE EQUILIBRIO\n"
+        texto += "─" * 60 + "\n\n"
+        texto += "Buscando puntos donde dx₁/dt = 0 y dx₂/dt = 0...\n\n"
+        
+        puntos_eq = self.sistema.encontrar_puntos_equilibrio((-5, 5), (-5, 5))
+        
+        if puntos_eq:
+            texto += f"Encontrados {len(puntos_eq)} punto(s) de equilibrio:\n\n"
+            for i, (px, py) in enumerate(puntos_eq, 1):
+                texto += f"  {i}. (x, y) = ({px:.4f}, {py:.4f})\n"
+                derivadas = self.sistema.sistema_ecuaciones([px, py], 0)
+                texto += f"     Verificación: |dx/dt| = {abs(derivadas[0]):.6f}, "
+                texto += f"|dy/dt| = {abs(derivadas[1]):.6f}\n"
+        else:
+            texto += "No se encontraron puntos de equilibrio en el rango [-5, 5]×[-5, 5]\n"
+        
+        # Análisis de estabilidad cualitativo
+        texto += "\n\nPASO 5: ANÁLISIS DE ESTABILIDAD\n"
+        texto += "─" * 60 + "\n\n"
+        
+        if tiene_t_f1 or tiene_t_f2:
+            texto += "Para sistemas no autónomos (con términos forzados),\n"
+            texto += "el análisis de estabilidad depende del comportamiento\n"
+            texto += "del término forzado en el tiempo.\n\n"
+            texto += "El sistema podría:\n"
+            texto += "  • Converger a una solución periódica\n"
+            texto += "  • Exhibir comportamiento caótico\n"
+            texto += "  • Seguir al término forzado\n"
+        else:
+            texto += "Para determinar estabilidad de sistemas no lineales:\n\n"
+            texto += "1. Linealizar cerca del punto de equilibrio\n"
+            texto += "2. Calcular la matriz Jacobiana:\n\n"
+            texto += "       ⎡ ∂f₁/∂x  ∂f₁/∂y ⎤\n"
+            texto += "   J = ⎢              ⎥\n"
+            texto += "       ⎣ ∂f₂/∂x  ∂f₂/∂y ⎦\n\n"
+            texto += "3. Evaluar autovalores de J en cada equilibrio\n"
+            texto += "4. Aplicar teorema de Hartman-Grobman\n\n"
+            texto += "💡 Sugerencia: Use herramientas de cálculo simbólico\n"
+            texto += "   para obtener las derivadas parciales.\n"
+        
+        return texto
+    
+    def _analisis_paso_a_paso_matriz(self):
+        """Análisis paso a paso para sistemas matriciales"""
+        texto = "📊 SISTEMA LINEAL - ANÁLISIS PASO A PASO\n"
         texto += "─" * 60 + "\n\n"
         
         a11, a12 = self.sistema.A[0, 0], self.sistema.A[0, 1]
@@ -361,7 +461,7 @@ class VentanaAnalisisPopup:
         texto += self._generar_paso_autovalores()
         texto += self._generar_paso_clasificacion()
         
-        self.text_widget.insert(1.0, texto)
+        return texto
     
     def _generar_paso_traza_determinante(self):
         """Genera paso 1: Cálculo de traza y determinante"""

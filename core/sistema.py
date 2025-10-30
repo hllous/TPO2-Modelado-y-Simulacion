@@ -72,11 +72,15 @@ class SistemaDinamico2D:
             f1_expr = self.funcion_personalizada['f1']
             f2_expr = self.funcion_personalizada['f2']
             
+            # Normalizar 'sen' a 'sin'
+            f1_expr = f1_expr.replace('sen', 'sin')
+            f2_expr = f2_expr.replace('sen', 'sin')
+            
             variables = {
                 'x1': x1, 'x2': x2, 't': t,
                 'x': x1, 'y': x2,
                 'np': np,
-                'sin': np.sin, 'cos': np.cos, 'tan': np.tan,
+                'sin': np.sin, 'sen': np.sin, 'cos': np.cos, 'tan': np.tan,
                 'exp': np.exp, 'log': np.log, 'sqrt': np.sqrt,
                 'abs': np.abs, 'pi': np.pi, 'e': np.e
             }
