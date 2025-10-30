@@ -1,0 +1,226 @@
+"""
+Módulo de visualización de bifurcaciones
+Genera diagramas de bifurcación y diagramas de fase
+"""
+
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+from typing import Dict, Tuple
+from .analysis import BifurcationAnalyzer
+
+
+class BifurcationVisualizer:
+    """Clase para visualizar diagramas de bifurcación y fase"""
+    
+    def __init__(self, analyzer: BifurcationAnalyzer):
+        """
+        Inicializa el visualizador
+        
+        Args:
+            analyzer: Instancia de BifurcationAnalyzer
+        """
+        self.analyzer = analyzer
+        
+    def plot_bifurcation_diagram(self, r_range: Tuple[float, float], 
+                                 fig: Figure = None, num_points: int = 200) -> Figure:
+        """
+        Genera el diagrama de bifurcación
+        
+        Args:
+            r_range: Rango de valores de r (r_min, r_max)
+            fig: Figura de matplotlib (opcional)
+            num_points: Número de puntos a evaluar (default: 200)
+            
+        Returns:
+            Figura de matplotlib
+        """
+        if fig is None:
+            fig = plt.figure(figsize=(10, 6))
+        
+        ax = fig.add_subplot(111)
+        
+        # Obtener datos de bifurcación
+        data = self.analyzer.generate_bifurcation_data(r_range, num_points=num_points)
+        
+        has_data = False
+        
+        # Separar ramas para graficar correctamente (especialmente para Pitchfork)
+        stable_branches = self._separate_branches(data['stable']['r'], data['stable']['x'])
+        unstable_branches = self._separate_branches(data['unstable']['r'], data['unstable']['x'])
+        
+        # Graficar ramas estables (azul, sólido)
+        for i, (r_branch, x_branch) in enumerate(stable_branches):
+            if len(r_branch) > 0:
+                label = 'Estable' if i == 0 else None
+                ax.plot(r_branch, x_branch, 'b-', linewidth=2, label=label)
+                has_data = True
+        
+        # Graficar ramas inestables (rojo, punteado)
+        for i, (r_branch, x_branch) in enumerate(unstable_branches):
+            if len(r_branch) > 0:
+                label = 'Inestable' if i == 0 else None
+                ax.plot(r_branch, x_branch, 'r--', linewidth=2, label=label)
+                has_data = True
+        
+        ax.axhline(y=0, color='k', linestyle='-', linewidth=0.5, alpha=0.3)
+        ax.axvline(x=0, color='k', linestyle='-', linewidth=0.5, alpha=0.3)
+        ax.set_xlabel('Parámetro r', fontsize=12)
+        ax.set_ylabel('x*', fontsize=12)
+        ax.set_title('Diagrama de Bifurcación', fontsize=14, fontweight='bold')
+        
+        if has_data:
+            ax.legend()
+        else:
+            ax.text(0.5, 0.5, 'No se encontraron puntos de equilibrio', 
+                   ha='center', va='center', transform=ax.transAxes,
+                   fontsize=12, color='red')
+        
+        ax.grid(True, alpha=0.3)
+        
+        return fig
+    
+    def _separate_branches(self, r_data: np.ndarray, x_data: np.ndarray) -> list:
+        """
+        Separa los datos en ramas continuas para graficar correctamente
+        
+        Para bifurcaciones tipo Pitchfork, los equilibrios pueden tener múltiples
+        valores de x para el mismo r (ej: r=1 tiene x=-1, 0, 1). Si graficamos
+        directamente, se crean líneas zigzag. Esta función separa en ramas continuas.
+        
+        Args:
+            r_data: Array de valores de r
+            x_data: Array de valores de x correspondientes
+            
+        Returns:
+            Lista de tuplas (r_branch, x_branch) para cada rama continua
+        """
+        if len(r_data) == 0:
+            return []
+        
+        # Agrupar puntos por valor de r
+        from collections import defaultdict
+        points_by_r = defaultdict(list)
+        
+        for r, x in zip(r_data, x_data):
+            points_by_r[r].append(x)
+        
+        # Ordenar r values
+        r_unique = sorted(points_by_r.keys())
+        
+        # Determinar número de ramas (máximo número de equilibrios para un r)
+        max_branches = max(len(points_by_r[r]) for r in r_unique)
+        
+        # Crear ramas
+        branches = [{'r': [], 'x': []} for _ in range(max_branches)]
+        
+        for r in r_unique:
+            x_values = sorted(points_by_r[r])  # Ordenar de menor a mayor
+            
+            # Asignar cada x a su rama correspondiente
+            for i, x in enumerate(x_values):
+                branches[i]['r'].append(r)
+                branches[i]['x'].append(x)
+        
+        # Convertir a arrays y retornar solo ramas no vacías
+        result = []
+        for branch in branches:
+            if len(branch['r']) > 0:
+                result.append((np.array(branch['r']), np.array(branch['x'])))
+        
+        return result
+    
+    def plot_phase_diagram(self, r_values: list, x_range: Tuple[float, float],
+                          fig: Figure = None) -> Figure:
+        """
+        Genera diagramas de fase para r < 0, r = 0, r > 0
+        
+        Args:
+            r_values: Lista de tres valores de r [r_neg, r_zero, r_pos]
+            x_range: Rango de valores de x (x_min, x_max)
+            fig: Figura de matplotlib (opcional)
+            
+        Returns:
+            Figura de matplotlib
+        """
+        if fig is None:
+            fig = plt.figure(figsize=(15, 4))
+        
+        titles = ['r < 0', 'r = 0', 'r > 0']
+        x_vals = np.linspace(x_range[0], x_range[1], 500)
+        
+        for i, (r_val, title) in enumerate(zip(r_values, titles)):
+            ax = fig.add_subplot(1, 3, i + 1)
+            
+            # Evaluar función
+            f_vals = self.analyzer.evaluate_function(x_vals, r_val)
+            
+            # Graficar f(x)
+            ax.plot(x_vals, f_vals, 'k-', linewidth=1.5, label='f(x)')
+            ax.axhline(y=0, color='gray', linestyle='-', linewidth=0.8)
+            ax.axvline(x=0, color='gray', linestyle='-', linewidth=0.8)
+            
+            # Encontrar y marcar puntos de equilibrio
+            eq_data = self.analyzer.get_equilibria_with_stability(r_val)
+            
+            for eq in eq_data:
+                x_eq = eq['x']
+                if x_range[0] <= x_eq <= x_range[1]:
+                    if eq['stability'] == 'stable':
+                        ax.plot(x_eq, 0, 'bo', markersize=10, 
+                               markerfacecolor='blue', label='Estable' if i == 0 else '')
+                    elif eq['stability'] == 'unstable':
+                        ax.plot(x_eq, 0, 'ro', markersize=10, 
+                               markerfacecolor='white', markeredgewidth=2,
+                               markeredgecolor='red', label='Inestable' if i == 0 else '')
+            
+            # Agregar campo vectorial (flechas)
+            arrow_x = np.linspace(x_range[0], x_range[1], 15)
+            for x_pos in arrow_x:
+                f_val = float(self.analyzer.evaluate_function(np.array([x_pos]), r_val)[0])
+                
+                # Tamaño de flecha proporcional a f(x)
+                arrow_size = 0.3 * np.sign(f_val) * min(abs(f_val), 1.0)
+                
+                if abs(f_val) > 0.01:  # Solo dibujar si no está en equilibrio
+                    # Determinar color basado en estabilidad local
+                    color = 'blue' if self._is_stable_region(x_pos, r_val) else 'red'
+                    style = '-' if self._is_stable_region(x_pos, r_val) else '--'
+                    
+                    ax.arrow(x_pos, -0.5, arrow_size, 0, 
+                            head_width=0.15, head_length=0.1,
+                            fc=color, ec=color, linewidth=1.5,
+                            linestyle=style, alpha=0.7)
+            
+            ax.set_xlabel('x', fontsize=11)
+            ax.set_ylabel('f(x)', fontsize=11)
+            ax.set_title(f'{title} (r = {r_val:.2f})', fontsize=12, fontweight='bold')
+            ax.grid(True, alpha=0.3)
+            ax.set_ylim([min(-1, np.min(f_vals)), max(1, np.max(f_vals))])
+            
+            # Leyenda solo en el primer subplot
+            if i == 0:
+                ax.legend(loc='best', fontsize=9)
+        
+        fig.tight_layout()
+        return fig
+    
+    def _is_stable_region(self, x_val: float, r_val: float) -> bool:
+        """
+        Determina si una región es estable (f'(x) < 0)
+        
+        Args:
+            x_val: Valor de x
+            r_val: Valor de r
+            
+        Returns:
+            True si la región es estable
+        """
+        try:
+            derivative = float(self.analyzer.df_dx.subs([
+                (self.analyzer.x, x_val), 
+                (self.analyzer.r, r_val)
+            ]))
+            return derivative < 0
+        except:
+            return False
