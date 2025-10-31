@@ -4,6 +4,7 @@ Contiene la clase SistemaDinamico2D y su lógica de análisis
 """
 
 import numpy as np
+import sympy as sp
 from scipy.integrate import odeint
 from scipy.optimize import fsolve
 
@@ -32,14 +33,81 @@ class SistemaDinamico2D:
             self.autovectores = None
             self.determinante = None
             self.traza = None
+            
+            # Parsear funciones con sympy para análisis simbólico
+            self._parsear_funciones_simbolicamnete()
         else:
             self.A = np.array(matriz, dtype=float)
             self.es_no_lineal = False
             self.autovalores, self.autovectores = np.linalg.eig(self.A)
             self.determinante = np.linalg.det(self.A)
             self.traza = np.trace(self.A)
+            self.jacobiano_simbolico = None
         
         self.termino_forzado = termino_forzado
+    
+    def _parsear_funciones_simbolicamnete(self):
+        """Parsea las funciones personalizadas con sympy y calcula el Jacobiano simbólico"""
+        try:
+            # Definir variables simbólicas
+            self.x_sym = sp.Symbol('x', real=True)
+            self.y_sym = sp.Symbol('y', real=True)
+            
+            # Parsear las funciones
+            f1_str = self.funcion_personalizada['f1'].replace('sen', 'sin')
+            f2_str = self.funcion_personalizada['f2'].replace('sen', 'sin')
+            
+            # Crear diccionario de símbolos y funciones disponibles para sympify
+            local_dict = {
+                'x': self.x_sym, 'y': self.y_sym,
+                'sin': sp.sin, 'cos': sp.cos, 'tan': sp.tan,
+                'exp': sp.exp, 'log': sp.log, 'sqrt': sp.sqrt,
+                'pi': sp.pi, 'e': sp.E
+            }
+            
+            self.f1_sym = sp.sympify(f1_str, locals=local_dict)
+            self.f2_sym = sp.sympify(f2_str, locals=local_dict)
+            
+            # Calcular derivadas parciales para el Jacobiano
+            self.df1_dx = sp.diff(self.f1_sym, self.x_sym)
+            self.df1_dy = sp.diff(self.f1_sym, self.y_sym)
+            self.df2_dx = sp.diff(self.f2_sym, self.x_sym)
+            self.df2_dy = sp.diff(self.f2_sym, self.y_sym)
+            
+            # Matriz Jacobiana simbólica
+            self.jacobiano_simbolico = sp.Matrix([
+                [self.df1_dx, self.df1_dy],
+                [self.df2_dx, self.df2_dy]
+            ])
+            
+        except Exception as e:
+            print(f"Error al parsear funciones simbólicamente: {e}")
+            self.f1_sym = None
+            self.f2_sym = None
+            self.jacobiano_simbolico = None
+    
+    def calcular_jacobiano_en_punto(self, x, y):
+        """
+        Calcula la matriz Jacobiana evaluada en un punto específico
+        
+        Parámetros:
+        - x, y: coordenadas del punto
+        
+        Retorna: matriz Jacobiana 2x2 como numpy array
+        """
+        if not self.funcion_personalizada or self.jacobiano_simbolico is None:
+            return None
+        
+        try:
+            # Evaluar el Jacobiano simbólico en el punto
+            jacobiano_evaluado = self.jacobiano_simbolico.subs([(self.x_sym, x), (self.y_sym, y)])
+            
+            # Convertir a numpy array
+            J = np.array(jacobiano_evaluado, dtype=float)
+            return J
+        except Exception as e:
+            print(f"Error calculando Jacobiano en ({x}, {y}): {e}")
+            return None
     
     def sistema_ecuaciones(self, X, t):
         """
@@ -115,17 +183,42 @@ class SistemaDinamico2D:
         
         return dXdt
     
-    def clasificar_punto_equilibrio(self):
+    def clasificar_punto_equilibrio(self, punto_equilibrio=None):
         """
         Clasifica el tipo de punto de equilibrio según autovalores
         
+        Parámetros:
+        - punto_equilibrio: tupla (x, y) del punto a analizar. Si None, usa (0,0) o el primer equilibrio encontrado
+        
         Retorna: (tipo, estabilidad)
         """
-        if self.es_no_lineal:
-            return "Sistema No Lineal", "Análisis requiere linealización"
+        if self.funcion_personalizada:
+            # Para sistemas no lineales, analizar en el punto de equilibrio especificado
+            if punto_equilibrio is None:
+                # Buscar el punto de equilibrio (0,0) o el primero encontrado
+                puntos_eq = self.encontrar_puntos_equilibrio()
+                if puntos_eq:
+                    punto_equilibrio = puntos_eq[0]  # Usar el primer punto encontrado
+                else:
+                    punto_equilibrio = (0, 0)  # Usar origen como fallback
+            
+            # Calcular Jacobiano en el punto
+            J = self.calcular_jacobiano_en_punto(punto_equilibrio[0], punto_equilibrio[1])
+            if J is None:
+                return "Error en linealización", "No se pudo calcular el Jacobiano"
+            
+            # Calcular autovalores del Jacobiano
+            try:
+                autovalores, autovectores = np.linalg.eig(J)
+                self.autovalores = autovalores
+                self.autovectores = autovectores
+                self.determinante = np.linalg.det(J)
+                self.traza = np.trace(J)
+            except:
+                return "Error en cálculo", "No se pudieron calcular autovalores"
         
         if self.autovalores is None:
-            return "N/A", "Sistema personalizado"
+            return "N/A", "Sistema personalizado sin análisis"
         
         lambda1, lambda2 = self.autovalores
         

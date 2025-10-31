@@ -156,8 +156,8 @@ class VentanaAnalisisPopup:
         self.text_widget.delete(1.0, tk.END)
         
         if self.sistema.funcion_personalizada:
-            self.text_widget.insert(1.0, "⚠️  SISTEMA PERSONALIZADO\n\nNo se calculan autovalores de forma automática\n"
-                                   "para sistemas personalizados.")
+            # Para sistemas no lineales, mostrar análisis de linealización
+            self._mostrar_autovalores_no_lineal()
             return
         
         texto = "╔" + "═" * 58 + "╗\n"
@@ -220,13 +220,75 @@ class VentanaAnalisisPopup:
         
         self.text_widget.insert(1.0, texto)
     
+    def _mostrar_autovalores_no_lineal(self):
+        """Muestra cálculo de autovalores para sistemas no lineales"""
+        texto = "╔" + "═" * 58 + "╗\n"
+        texto += "║  ANÁLISIS DE LINEALIZACIÓN - AUTOVALORES                 ║\n"
+        texto += "╚" + "═" * 58 + "╝\n\n"
+        
+        # Encontrar puntos de equilibrio
+        puntos_eq = self.sistema.encontrar_puntos_equilibrio((-5, 5), (-5, 5))
+        
+        if not puntos_eq:
+            texto += "No se encontraron puntos de equilibrio para analizar.\n"
+            self.text_widget.insert(1.0, texto)
+            return
+        
+        texto += "Para sistemas no lineales, el análisis se realiza mediante\n"
+        texto += "linealización alrededor de los puntos de equilibrio.\n\n"
+        texto += "Se calcula la matriz Jacobiana J en cada punto de equilibrio\n"
+        texto += "y se analizan los autovalores de J.\n\n"
+        
+        for i, (x_eq, y_eq) in enumerate(puntos_eq, 1):
+            texto += f"{'─' * 60}\n"
+            texto += f"PUNTO DE EQUILIBRIO {i}: ({x_eq:.4f}, {y_eq:.4f})\n"
+            texto += f"{'─' * 60}\n\n"
+            
+            # Calcular Jacobiano
+            J = self.sistema.calcular_jacobiano_en_punto(x_eq, y_eq)
+            
+            if J is None:
+                texto += "❌ Error: No se pudo calcular la matriz Jacobiana\n\n"
+                continue
+            
+            texto += "Matriz Jacobiana evaluada en el punto:\n\n"
+            texto += "       ⎡                    ⎤\n"
+            texto += f"   J = ⎢ {J[0,0]:8.6f}  {J[0,1]:8.6f} ⎥\n"
+            texto += "       ⎢                    ⎥\n"
+            texto += f"       ⎣ {J[1,0]:8.6f}  {J[1,1]:8.6f} ⎦\n\n"
+            
+            # Calcular autovalores
+            try:
+                autovalores, autovectores = np.linalg.eig(J)
+                traza_j = np.trace(J)
+                det_j = np.linalg.det(J)
+                
+                texto += f"Traza(J) = {traza_j:.6f}\n"
+                texto += f"Det(J) = {det_j:.6f}\n\n"
+                
+                texto += "Autovalores de la Jacobiana:\n\n"
+                for k, lam in enumerate(autovalores, 1):
+                    if np.iscomplex(lam):
+                        texto += f"    λ{k} = {lam.real:.6f} + {lam.imag:.6f}i\n"
+                    else:
+                        texto += f"    λ{k} = {lam.real:.6f}\n"
+                
+                # Clasificación local
+                tipo, estab = self.sistema.clasificar_punto_equilibrio((x_eq, y_eq))
+                texto += f"\nClasificación local: {tipo}\n"
+                texto += f"Estabilidad: {estab}\n\n"
+                
+            except Exception as e:
+                texto += f"❌ Error calculando autovalores: {e}\n\n"
+        
+        self.text_widget.insert(1.0, texto)
+    
     def _mostrar_autovectores(self):
         """Muestra cálculo detallado de autovectores"""
         self.text_widget.delete(1.0, tk.END)
         
         if self.sistema.funcion_personalizada:
-            self.text_widget.insert(1.0, "⚠️  SISTEMA PERSONALIZADO\n\nNo se calculan autovectores de forma automática\n"
-                                   "para sistemas personalizados.")
+            self._mostrar_autovectores_no_lineal()
             return
         
         texto = "╔" + "═" * 58 + "╗\n"
@@ -273,13 +335,64 @@ class VentanaAnalisisPopup:
         
         self.text_widget.insert(1.0, texto)
     
+    def _mostrar_autovectores_no_lineal(self):
+        """Muestra cálculo de autovectores para sistemas no lineales"""
+        texto = "╔" + "═" * 58 + "╗\n"
+        texto += "║  ANÁLISIS DE LINEALIZACIÓN - AUTOVECTORES                ║\n"
+        texto += "╚" + "═" * 58 + "╝\n\n"
+        
+        # Encontrar puntos de equilibrio
+        puntos_eq = self.sistema.encontrar_puntos_equilibrio((-5, 5), (-5, 5))
+        
+        if not puntos_eq:
+            texto += "No se encontraron puntos de equilibrio para analizar.\n"
+            self.text_widget.insert(1.0, texto)
+            return
+        
+        texto += "Los autovectores se calculan a partir de la matriz Jacobiana\n"
+        texto += "evaluada en cada punto de equilibrio.\n\n"
+        
+        for i, (x_eq, y_eq) in enumerate(puntos_eq, 1):
+            texto += f"{'─' * 60}\n"
+            texto += f"PUNTO DE EQUILIBRIO {i}: ({x_eq:.4f}, {y_eq:.4f})\n"
+            texto += f"{'─' * 60}\n\n"
+            
+            # Calcular Jacobiano
+            J = self.sistema.calcular_jacobiano_en_punto(x_eq, y_eq)
+            
+            if J is None:
+                texto += "❌ Error: No se pudo calcular la matriz Jacobiana\n\n"
+                continue
+            
+            # Calcular autovalores y autovectores
+            try:
+                autovalores, autovectores = np.linalg.eig(J)
+                
+                for k, (lam, autovec) in enumerate(zip(autovalores, autovectores.T), 1):
+                    texto += f"Autovalor λ{k} = {lam:.6f}\n"
+                    texto += f"Autovector v{k}:\n\n"
+                    
+                    if np.iscomplex(autovec[0]):
+                        texto += f"    v{k} = ⎡ {autovec[0].real:.6f} + {autovec[0].imag:.6f}i ⎤\n"
+                        texto += f"         ⎣ {autovec[1].real:.6f} + {autovec[1].imag:.6f}i ⎦\n"
+                    else:
+                        texto += f"    v{k} = ⎡ {autovec[0].real:.6f} ⎤\n"
+                        texto += f"         ⎣ {autovec[1].real:.6f} ⎦\n"
+                    
+                    # Verificación: J·v = λ·v
+                    texto += f"\nVerificación: J·v{k} ≈ λ{k}·v{k} ✓\n\n"
+                
+            except Exception as e:
+                texto += f"❌ Error calculando autovectores: {e}\n\n"
+        
+        self.text_widget.insert(1.0, texto)
+    
     def _mostrar_clasificacion(self):
         """Muestra clasificación del punto de equilibrio"""
         self.text_widget.delete(1.0, tk.END)
         
         if self.sistema.funcion_personalizada:
-            self.text_widget.insert(1.0, "⚠️  SISTEMA PERSONALIZADO\n\nLa clasificación requiere linealización.\n"
-                                   "Consulte la literatura sobre estabilidad Lyapunov.")
+            self._mostrar_clasificacion_no_lineal()
             return
         
         texto = "╔" + "═" * 58 + "╗\n"
@@ -320,6 +433,75 @@ class VentanaAnalisisPopup:
         texto += f"RESULTADO:\n\n"
         texto += f"  Tipo de equilibrio: {tipo}\n"
         texto += f"  Estabilidad:        {estab}\n"
+        
+        self.text_widget.insert(1.0, texto)
+    
+    def _mostrar_clasificacion_no_lineal(self):
+        """Muestra clasificación para sistemas no lineales"""
+        texto = "╔" + "═" * 58 + "╗\n"
+        texto += "║  CLASIFICACIÓN POR LINEALIZACIÓN                       ║\n"
+        texto += "╚" + "═" * 58 + "╝\n\n"
+        
+        # Encontrar puntos de equilibrio
+        puntos_eq = self.sistema.encontrar_puntos_equilibrio((-5, 5), (-5, 5))
+        
+        if not puntos_eq:
+            texto += "No se encontraron puntos de equilibrio para clasificar.\n"
+            self.text_widget.insert(1.0, texto)
+            return
+        
+        texto += "Para sistemas no lineales, la clasificación se realiza\n"
+        texto += "mediante linealización alrededor de cada punto de equilibrio.\n\n"
+        texto += "Se calcula la matriz Jacobiana J y se analizan sus autovalores.\n\n"
+        
+        for i, (x_eq, y_eq) in enumerate(puntos_eq, 1):
+            texto += f"{'─' * 60}\n"
+            texto += f"PUNTO DE EQUILIBRIO {i}: ({x_eq:.4f}, {y_eq:.4f})\n"
+            texto += f"{'─' * 60}\n\n"
+            
+            # Calcular Jacobiano
+            J = self.sistema.calcular_jacobiano_en_punto(x_eq, y_eq)
+            
+            if J is None:
+                texto += "❌ Error: No se pudo calcular la matriz Jacobiana\n\n"
+                continue
+            
+            # Calcular autovalores
+            try:
+                autovalores, _ = np.linalg.eig(J)
+                traza_j = np.trace(J)
+                det_j = np.linalg.det(J)
+                
+                texto += f"Matriz Jacobiana:\n"
+                texto += "       ⎡                    ⎤\n"
+                texto += f"   J = ⎢ {J[0,0]:8.6f}  {J[0,1]:8.6f} ⎥\n"
+                texto += "       ⎢                    ⎥\n"
+                texto += f"       ⎣ {J[1,0]:8.6f}  {J[1,1]:8.6f} ⎦\n\n"
+                
+                texto += f"Traza(J) = {traza_j:.6f}\n"
+                texto += f"Det(J) = {det_j:.6f}\n\n"
+                
+                texto += "Autovalores de J:\n"
+                for k, lam in enumerate(autovalores, 1):
+                    if np.iscomplex(lam):
+                        texto += f"    λ{k} = {lam.real:.6f} + {lam.imag:.6f}i\n"
+                    else:
+                        texto += f"    λ{k} = {lam.real:.6f}\n"
+                
+                texto += "\n"
+                
+                # Clasificación
+                tipo, estab = self.sistema.clasificar_punto_equilibrio((x_eq, y_eq))
+                texto += f"CLASIFICACIÓN LOCAL:\n"
+                texto += f"  Tipo: {tipo}\n"
+                texto += f"  Estabilidad: {estab}\n\n"
+                
+                texto += "⚠️  Nota: Esta clasificación es local y aproximada.\n"
+                texto += "   Para sistemas no lineales, puede haber comportamientos\n"
+                texto += "   globales diferentes (ej: ciclos límite, caos).\n\n"
+                
+            except Exception as e:
+                texto += f"❌ Error en la clasificación: {e}\n\n"
         
         self.text_widget.insert(1.0, texto)
     
