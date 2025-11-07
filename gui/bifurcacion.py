@@ -5,7 +5,7 @@ Interfaz gráfica para análisis de bifurcaciones 1D
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.figure import Figure
 import matplotlib
 matplotlib.use('TkAgg')
@@ -182,6 +182,12 @@ class InterfazBifurcacion:
         self.bifurcacion_canvas = FigureCanvasTkAgg(self.bifurcacion_fig, master=bifurcacion_frame)
         self.bifurcacion_canvas.get_tk_widget().grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
+        # Toolbar para diagrama de bifurcación
+        toolbar_bif_frame = ttk.Frame(bifurcacion_frame)
+        toolbar_bif_frame.grid(row=1, column=0, sticky=(tk.W, tk.E))
+        self.toolbar_bifurcacion = NavigationToolbar2Tk(self.bifurcacion_canvas, toolbar_bif_frame)
+        self.toolbar_bifurcacion.update()
+        
         # Diagramas de fase
         phase_frame = ttk.LabelFrame(plot_frame, text="Diagramas de Fase", padding="5")
         phase_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
@@ -191,6 +197,12 @@ class InterfazBifurcacion:
         self.phase_fig = Figure(figsize=(8, 3), dpi=100)
         self.phase_canvas = FigureCanvasTkAgg(self.phase_fig, master=phase_frame)
         self.phase_canvas.get_tk_widget().grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        # Toolbar para diagramas de fase
+        toolbar_phase_frame = ttk.Frame(phase_frame)
+        toolbar_phase_frame.grid(row=1, column=0, sticky=(tk.W, tk.E))
+        self.toolbar_phase = NavigationToolbar2Tk(self.phase_canvas, toolbar_phase_frame)
+        self.toolbar_phase.update()
     
     def _cargar_ejemplo(self):
         """Carga un ejemplo predefinido"""

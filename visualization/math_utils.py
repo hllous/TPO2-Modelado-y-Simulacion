@@ -92,8 +92,18 @@ def encontrar_limites_automaticos(sistema, rango_busqueda=(-10, 10)):
         x_center = np.mean(xs)
         y_center = np.mean(ys)
         
-        x_range = max(abs(max(xs) - min(xs)), 3) * 1.5
-        y_range = max(abs(max(ys) - min(ys)), 3) * 1.5
+        # Calcular rango basado en dispersión de puntos
+        if len(puntos_eq) > 1:
+            x_spread = max(xs) - min(xs)
+            y_spread = max(ys) - min(ys)
+        else:
+            # Para un solo punto, usar su distancia al origen como referencia
+            x_spread = abs(xs[0])
+            y_spread = abs(ys[0])
+        
+        # Asegurar un rango mínimo razonable
+        x_range = max(x_spread, 3) * 1.5
+        y_range = max(y_spread, 3) * 1.5
         
         xlim = (x_center - x_range, x_center + x_range)
         ylim = (y_center - y_range, y_center + y_range)

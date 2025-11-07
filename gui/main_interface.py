@@ -11,6 +11,7 @@ from gui.bifurcacion import InterfazBifurcacion
 from gui.sistema_1d import InterfazSistema1D
 from gui.hamilton import InterfazHamilton
 from gui.lotka_volterra import InterfazLotkaVolterra
+from gui.modelo_infeccion import InterfazModeloInfeccion
 
 
 class InterfazPrincipal:
@@ -32,6 +33,11 @@ class InterfazPrincipal:
             'titulo': '🔀 Bifurcaciones',
             'clase': InterfazBifurcacion,
             'descripcion': 'Análisis de bifurcaciones en sistemas dinámicos 1D\ncon diagramas de bifurcación y análisis de estabilidad.'
+        },
+        'infeccion': {
+            'titulo': '🦠 Modelo Infección',
+            'clase': InterfazModeloInfeccion,
+            'descripcion': 'Simulación de propagación viral con modelo logístico\ndP/dt = K·P·(N-P). Evalúa infectados en días específicos.'
         },
         'hamilton': {
             'titulo': '⚡ Hamilton',

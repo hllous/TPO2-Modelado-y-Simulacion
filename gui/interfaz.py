@@ -6,7 +6,7 @@ Orquesta todos los módulos para crear la aplicación
 import tkinter as tk
 from tkinter import ttk, messagebox
 import numpy as np
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.figure import Figure
 import matplotlib
 matplotlib.use('TkAgg')
@@ -487,6 +487,13 @@ class InterfazGrafica:
         self.canvas.draw()
         self.canvas.get_tk_widget().grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
+        # Toolbar de navegación de matplotlib (pan, zoom, home, save)
+        toolbar_frame = ttk.Frame(right_frame)
+        toolbar_frame.grid(row=3, column=0, sticky=(tk.W, tk.E))
+        
+        self.toolbar = NavigationToolbar2Tk(self.canvas, toolbar_frame)
+        self.toolbar.update()
+        
         # Conectar clic
         self.canvas.mpl_connect('button_press_event', self.on_canvas_click)
         
@@ -588,8 +595,18 @@ class InterfazGrafica:
             if sistema:
                 self.sistema_actual = sistema
                 
+                # Calcular límites automáticos basados en puntos de equilibrio
+                from visualization.math_utils import encontrar_limites_automaticos
+                xlim_auto, ylim_auto = encontrar_limites_automaticos(sistema, rango_busqueda=(-10, 10))
+                
+                # Actualizar los campos de entrada de límites
+                self.xlim_min.set(round(xlim_auto[0], 2))
+                self.xlim_max.set(round(xlim_auto[1], 2))
+                self.ylim_min.set(round(ylim_auto[0], 2))
+                self.ylim_max.set(round(ylim_auto[1], 2))
+                
                 grapher = Grapher(sistema)
-                grapher.crear_grafica(self.ax)
+                grapher.crear_grafica(self.ax, xlim=xlim_auto, ylim=ylim_auto)
                 self.canvas.draw()
         
         except Exception as e:

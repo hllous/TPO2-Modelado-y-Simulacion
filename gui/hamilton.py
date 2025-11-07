@@ -5,7 +5,7 @@ Interfaz gráfica para análisis de sistemas Hamiltonianos
 import tkinter as tk
 from tkinter import ttk, messagebox
 import traceback
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.figure import Figure
 import matplotlib
 matplotlib.use('TkAgg')

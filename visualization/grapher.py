@@ -40,7 +40,22 @@ class Grapher:
         if xlim == self.DEFAULT_XLIM and ylim == self.DEFAULT_YLIM:
             xlim, ylim = encontrar_limites_automaticos(self.sistema)
         
-        self._dibujar_campo_direcciones(ax, xlim, ylim, n_puntos)
+        # Extender el área de dibujado del campo de direcciones para pan/zoom
+        # Multiplicar por 3x para tener un área mucho más grande
+        factor_extension = 3.0
+        xlim_extended = (
+            xlim[0] - (xlim[1] - xlim[0]) * factor_extension,
+            xlim[1] + (xlim[1] - xlim[0]) * factor_extension
+        )
+        ylim_extended = (
+            ylim[0] - (ylim[1] - ylim[0]) * factor_extension,
+            ylim[1] + (ylim[1] - ylim[0]) * factor_extension
+        )
+        
+        # Dibujar campo en área extendida, pero usar más puntos proporcionalmente
+        n_puntos_extended = int(n_puntos * 2.5)  # Más densidad en área extendida
+        self._dibujar_campo_direcciones(ax, xlim_extended, ylim_extended, n_puntos_extended)
+        
         self._dibujar_autovectores(ax)
         self._marcar_puntos_equilibrio(ax, xlim, ylim)
         self._configurar_ejes(ax, xlim, ylim)

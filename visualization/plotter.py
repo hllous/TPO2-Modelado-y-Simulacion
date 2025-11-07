@@ -29,8 +29,9 @@ def integrate_trajectory_limited(sistema, condicion_inicial, max_distance=100,
     
     # Determinar límites efectivos
     if xlim and ylim:
-        # Usar los límites de la vista actual con un margen
-        margen = 0.5  # 50% extra de cada lado
+        # Usar los límites de la vista actual con un margen generoso
+        # Margen de 1.0 = 100% extra de cada lado (3x el área visible)
+        margen = 1.0
         rango_x = xlim[1] - xlim[0]
         rango_y = ylim[1] - ylim[0]
         

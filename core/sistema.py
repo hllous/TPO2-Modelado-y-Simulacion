@@ -279,21 +279,68 @@ class SistemaDinamico2D:
         if not self.termino_forzado and not self.funcion_personalizada:
             return [(0, 0)]
         
-        # Búsqueda numérica para sistemas no homogéneos o personalizados
+        # Intentar primero búsqueda simbólica para sistemas personalizados
+        if self.funcion_personalizada and hasattr(self, 'f1_sym') and self.f1_sym is not None:
+            try:
+                # Resolver simbólicamente
+                soluciones_simbolicas = sp.solve([self.f1_sym, self.f2_sym], 
+                                                 [self.x_sym, self.y_sym], dict=True)
+                
+                for sol_dict in soluciones_simbolicas:
+                    try:
+                        # Sustituir parámetros
+                        sol_subs = sol_dict
+                        for param_name, param_value in self.parametros.items():
+                            if param_name in self.param_symbols:
+                                sol_subs = {k: v.subs(self.param_symbols[param_name], param_value) 
+                                           for k, v in sol_subs.items()}
+                        
+                        # Convertir a float
+                        x_val = complex(sol_subs[self.x_sym])
+                        y_val = complex(sol_subs[self.y_sym])
+                        
+                        # Solo tomar soluciones reales
+                        if abs(x_val.imag) < 1e-10 and abs(y_val.imag) < 1e-10:
+                            x_float = float(x_val.real)
+                            y_float = float(y_val.real)
+                            
+                            # Verificar que esté dentro de los límites
+                            if xlim[0] <= x_float <= xlim[1] and ylim[0] <= y_float <= ylim[1]:
+                                # Verificar que realmente sea equilibrio
+                                derivadas = self.sistema_ecuaciones([x_float, y_float], 0)
+                                if abs(derivadas[0]) < tolerancia and abs(derivadas[1]) < tolerancia:
+                                    if self._es_punto_nuevo([x_float, y_float], puntos_equilibrio, tolerancia):
+                                        puntos_equilibrio.append((x_float, y_float))
+                    except (TypeError, ValueError, AttributeError):
+                        continue
+            except:
+                pass  # Si falla búsqueda simbólica, usar numérica
+        
+        # Búsqueda numérica complementaria (encuentra puntos que la simbólica puede perder)
         puntos_prueba = self._generar_puntos_prueba(xlim, ylim)
         
-        for x0, y0 in puntos_prueba:
-            try:
-                sol = fsolve(lambda X: self.sistema_ecuaciones(X, 0), [x0, y0])
-                
-                if xlim[0] <= sol[0] <= xlim[1] and ylim[0] <= sol[1] <= ylim[1]:
-                    derivadas = self.sistema_ecuaciones(sol, 0)
+        # Silenciar warnings de convergencia de fsolve
+        import warnings
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore', category=RuntimeWarning)
+            
+            for x0, y0 in puntos_prueba:
+                try:
+                    sol = fsolve(lambda X: self.sistema_ecuaciones(X, 0), [x0, y0], full_output=True)
+                    x_sol = sol[0]
+                    info = sol[1]
                     
-                    if abs(derivadas[0]) < tolerancia and abs(derivadas[1]) < tolerancia:
-                        if self._es_punto_nuevo(sol, puntos_equilibrio, tolerancia):
-                            puntos_equilibrio.append((sol[0], sol[1]))
-            except:
-                continue
+                    # Verificar que la solución es válida (convergió)
+                    if info['fvec'] is not None:
+                        # Verificar que está dentro de límites
+                        if xlim[0] <= x_sol[0] <= xlim[1] and ylim[0] <= x_sol[1] <= ylim[1]:
+                            derivadas = self.sistema_ecuaciones(x_sol, 0)
+                            
+                            if abs(derivadas[0]) < tolerancia and abs(derivadas[1]) < tolerancia:
+                                if self._es_punto_nuevo(x_sol, puntos_equilibrio, tolerancia):
+                                    puntos_equilibrio.append((x_sol[0], x_sol[1]))
+                except:
+                    continue
         
         # Retornar (0,0) para sistemas lineales si no encontró nada
         if len(puntos_equilibrio) == 0 and not self.funcion_personalizada:
@@ -304,14 +351,31 @@ class SistemaDinamico2D:
     @staticmethod
     def _generar_puntos_prueba(xlim, ylim):
         """Genera puntos iniciales para búsqueda de equilibrios"""
-        return [
+        import numpy as np
+        puntos = [
             (0, 0),
+            # Puntos en ejes
             (1, 0), (-1, 0), (0, 1), (0, -1),
-            (1, 1), (-1, -1), (1, -1), (-1, 1),
             (2, 0), (-2, 0), (0, 2), (0, -2),
+            (3, 0), (-3, 0), (0, 3), (0, -3),
+            (4, 0), (-4, 0), (0, 4), (0, -4),
+            # Puntos diagonales
+            (1, 1), (-1, -1), (1, -1), (-1, 1),
             (2, 2), (-2, -2), (2, -2), (-2, 2),
-            (0.5, 0.5), (-0.5, -0.5), (1.5, 1.5), (-1.5, -1.5)
+            (0.5, 0.5), (-0.5, -0.5), (1.5, 1.5), (-1.5, -1.5),
+            # Combinaciones específicas
+            (2, 0.5), (2, -0.5), (3, 0.5), (3, -0.5),
+            (0.5, 2), (-0.5, 2), (0.5, 3), (-0.5, 3),
         ]
+        
+        # Agregar puntos en una malla dentro de los límites
+        x_range = np.linspace(xlim[0], xlim[1], 8)
+        y_range = np.linspace(ylim[0], ylim[1], 8)
+        for xi in x_range:
+            for yi in y_range:
+                puntos.append((float(xi), float(yi)))
+        
+        return puntos
     
     @staticmethod
     def _es_punto_nuevo(sol, puntos_existentes, tolerancia):

@@ -5,7 +5,7 @@ Interfaz gráfica para análisis de sistemas no lineales 1D
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.figure import Figure
 import matplotlib
 matplotlib.use('TkAgg')
@@ -189,6 +189,12 @@ class InterfazSistema1D:
         )
         self.canvas_principal.get_tk_widget().grid(row=0, column=0,
                                                     sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        # Toolbar de navegación
+        toolbar_frame = ttk.Frame(plot_frame)
+        toolbar_frame.grid(row=1, column=0, sticky=(tk.W, tk.E))
+        self.toolbar = NavigationToolbar2Tk(self.canvas_principal, toolbar_frame)
+        self.toolbar.update()
     
     def _cargar_ejemplo(self):
         """Carga un ejemplo predefinido"""
