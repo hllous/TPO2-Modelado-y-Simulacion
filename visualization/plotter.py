@@ -8,21 +8,52 @@ from scipy.integrate import odeint
 
 
 def integrate_trajectory_limited(sistema, condicion_inicial, max_distance=100, 
-                                min_distance=0.01, max_steps=1000, direccion=1):
+                                min_distance=0.01, max_steps=1000, direccion=1,
+                                xlim=None, ylim=None):
     """
     Integra trayectoria con límites para evitar inestabilidades numéricas
-    Parámetro simplificado: dirección es solo 1 o -1
+    
+    Parámetros:
+    - sistema: SistemaDinamico2D
+    - condicion_inicial: [x0, y0]
+    - max_distance: distancia máxima desde el origen (si no hay xlim/ylim)
+    - min_distance: distancia mínima al origen
+    - max_steps: número máximo de pasos
+    - direccion: 1 (adelante) o -1 (atrás)
+    - xlim, ylim: límites de la vista actual (opcional, pero recomendado)
     """
     puntos = []
     t_actual = 0
     estado = np.array(condicion_inicial, dtype=float)
     dt = 0.01 * direccion
     
-    for _ in range(max_steps):
-        distancia = np.sqrt(estado[0]**2 + estado[1]**2)
+    # Determinar límites efectivos
+    if xlim and ylim:
+        # Usar los límites de la vista actual con un margen
+        margen = 0.5  # 50% extra de cada lado
+        rango_x = xlim[1] - xlim[0]
+        rango_y = ylim[1] - ylim[0]
         
-        if distancia > max_distance or distancia < min_distance:
-            break
+        x_min = xlim[0] - margen * rango_x
+        x_max = xlim[1] + margen * rango_x
+        y_min = ylim[0] - margen * rango_y
+        y_max = ylim[1] + margen * rango_y
+        usar_limites_vista = True
+    else:
+        usar_limites_vista = False
+    
+    for _ in range(max_steps):
+        # Verificar si está fuera de los límites
+        if usar_limites_vista:
+            # Verificar límites de la vista
+            if (estado[0] < x_min or estado[0] > x_max or 
+                estado[1] < y_min or estado[1] > y_max):
+                break
+        else:
+            # Usar distancia desde origen (comportamiento original)
+            distancia = np.sqrt(estado[0]**2 + estado[1]**2)
+            if distancia > max_distance or distancia < min_distance:
+                break
         
         puntos.append(estado.copy())
         

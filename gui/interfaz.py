@@ -666,11 +666,17 @@ class InterfazGrafica:
         try:
             condicion_inicial = [event.xdata, event.ydata]
             
-            # Calcular trayectorias hacia adelante y atrás
+            # Obtener límites actuales de la vista (para pan/zoom)
+            xlim = self.ax.get_xlim()
+            ylim = self.ax.get_ylim()
+            
+            # Calcular trayectorias hacia adelante y atrás con límites dinámicos
             solucion_fw = integrate_trajectory_limited(
-                self.sistema_actual, condicion_inicial, direccion=1)
+                self.sistema_actual, condicion_inicial, direccion=1,
+                xlim=xlim, ylim=ylim)
             solucion_bw = integrate_trajectory_limited(
-                self.sistema_actual, condicion_inicial, direccion=-1)
+                self.sistema_actual, condicion_inicial, direccion=-1,
+                xlim=xlim, ylim=ylim)
             
             # Dibujar con flechas direccionales
             if len(solucion_fw) > 1:
