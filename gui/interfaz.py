@@ -15,6 +15,7 @@ from core.sistema import SistemaDinamico2D
 from core.utils import normalizar_funciones
 from visualization.grapher import Grapher
 from visualization.plotter import integrate_trajectory_limited
+from visualization.math_utils import agregar_flechas_trayectoria
 from ui.widgets import ToolTip
 from ui.estilos import configurar_estilos_ttk, COLORES, FUENTES
 from input_module.ejemplos import EJEMPLOS_LINEALES
@@ -421,22 +422,62 @@ class InterfazGrafica:
         else:
             right_frame.pack(fill=tk.BOTH, expand=True, side=tk.RIGHT)
         
-        ttk.Label(right_frame, text="Visualización del Sistema",
-                 style='Title.TLabel').grid(row=0, column=0, pady=(0, 10))
+        # Header con título y controles
+        header_frame = ttk.Frame(right_frame)
+        header_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
         
-        # Controles
-        controles_frame = ttk.Frame(right_frame)
-        controles_frame.grid(row=0, column=0, pady=(0, 10), sticky=tk.E, padx=10)
+        ttk.Label(header_frame, text="Visualización del Sistema",
+                 style='Title.TLabel').pack(side=tk.LEFT)
         
-        btn_limpiar = ttk.Button(controles_frame, text="Limpiar Trayectorias",
+        # Controles de limpieza
+        btn_limpiar = ttk.Button(header_frame, text="Limpiar Trayectorias",
                                 command=self.limpiar_trayectorias)
         btn_limpiar.pack(side=tk.RIGHT, padx=5)
         
-        info = ttk.Label(controles_frame, 
-                        text="Clic en la gráfica para generar trayectorias",
+        info = ttk.Label(header_frame, 
+                        text="Clic para trayectorias | Tamaño ajustable",
                         background='white', font=FUENTES['pequena'],
                         foreground=COLORES['texto_secundario'])
         info.pack(side=tk.RIGHT, padx=10)
+        
+        # Frame para controles de tamaño
+        size_frame = ttk.LabelFrame(right_frame, text="Tamaño del Gráfico", padding="5")
+        size_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        
+        # Variables para tamaño
+        self.xlim_min = tk.DoubleVar(value=-5.0)
+        self.xlim_max = tk.DoubleVar(value=5.0)
+        self.ylim_min = tk.DoubleVar(value=-5.0)
+        self.ylim_max = tk.DoubleVar(value=5.0)
+        
+        # Rango X
+        ttk.Label(size_frame, text="Eje X:", font=FUENTES['pequena']).grid(row=0, column=0, sticky=tk.W)
+        ttk.Label(size_frame, text="Min:", font=FUENTES['pequena']).grid(row=0, column=1, sticky=tk.W)
+        entry_xmin = ttk.Entry(size_frame, textvariable=self.xlim_min, width=8)
+        entry_xmin.grid(row=0, column=2, padx=2)
+        entry_xmin.bind('<Return>', lambda e: self.actualizar_limites())
+        
+        ttk.Label(size_frame, text="Max:", font=FUENTES['pequena']).grid(row=0, column=3, sticky=tk.W)
+        entry_xmax = ttk.Entry(size_frame, textvariable=self.xlim_max, width=8)
+        entry_xmax.grid(row=0, column=4, padx=2)
+        entry_xmax.bind('<Return>', lambda e: self.actualizar_limites())
+        
+        # Rango Y
+        ttk.Label(size_frame, text="Eje Y:", font=FUENTES['pequena']).grid(row=1, column=0, sticky=tk.W)
+        ttk.Label(size_frame, text="Min:", font=FUENTES['pequena']).grid(row=1, column=1, sticky=tk.W)
+        entry_ymin = ttk.Entry(size_frame, textvariable=self.ylim_min, width=8)
+        entry_ymin.grid(row=1, column=2, padx=2)
+        entry_ymin.bind('<Return>', lambda e: self.actualizar_limites())
+        
+        ttk.Label(size_frame, text="Max:", font=FUENTES['pequena']).grid(row=1, column=3, sticky=tk.W)
+        entry_ymax = ttk.Entry(size_frame, textvariable=self.ylim_max, width=8)
+        entry_ymax.grid(row=1, column=4, padx=2)
+        entry_ymax.bind('<Return>', lambda e: self.actualizar_limites())
+        
+        # Botón reset
+        btn_reset = ttk.Button(size_frame, text="Reset", 
+                              command=self._reset_limites, width=6)
+        btn_reset.grid(row=0, column=5, padx=5, rowspan=2)
         
         # Gráfica de matplotlib
         self.fig = Figure(figsize=(8, 7), dpi=100)
@@ -444,12 +485,12 @@ class InterfazGrafica:
         
         self.canvas = FigureCanvasTkAgg(self.fig, master=right_frame)
         self.canvas.draw()
-        self.canvas.get_tk_widget().grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        self.canvas.get_tk_widget().grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
         # Conectar clic
         self.canvas.mpl_connect('button_press_event', self.on_canvas_click)
         
-        right_frame.rowconfigure(1, weight=1)
+        right_frame.rowconfigure(2, weight=1)
         right_frame.columnconfigure(0, weight=1)
     
     def cambiar_modo(self):
@@ -654,25 +695,7 @@ class InterfazGrafica:
     
     def _agregar_flechas_a_trayectoria(self, ax, trayectoria, color):
         """Agrega flechas direccionales a una trayectoria"""
-        if len(trayectoria) < 10:
-            return
-        
-        # Agregar 3-5 flechas distribuidas uniformemente
-        num_flechas = min(5, len(trayectoria) // 20)
-        if num_flechas < 1:
-            num_flechas = 1
-        
-        indices = np.linspace(10, len(trayectoria)-10, num_flechas, dtype=int)
-        
-        for idx in indices:
-            if idx < len(trayectoria) - 1:
-                x_start, y_start = trayectoria[idx]
-                x_end, y_end = trayectoria[idx + 1]
-                
-                # Dibujar flecha
-                ax.annotate('', xy=(x_end, y_end), xytext=(x_start, y_start),
-                           arrowprops=dict(arrowstyle='->', color=color, 
-                                         lw=2, alpha=0.8))
+        agregar_flechas_trayectoria(ax, trayectoria, color, num_flechas=5)
     
     def limpiar_trayectorias(self):
         """Limpia trayectorias y redibuja"""
@@ -680,6 +703,36 @@ class InterfazGrafica:
             grapher = Grapher(self.sistema_actual)
             grapher.crear_grafica(self.ax)
             self.canvas.draw()
+    
+    def actualizar_limites(self):
+        """Actualiza los límites del gráfico según los valores ingresados"""
+        try:
+            xlim = (float(self.xlim_min.get()), float(self.xlim_max.get()))
+            ylim = (float(self.ylim_min.get()), float(self.ylim_max.get()))
+            
+            # Validar que mín < máx
+            if xlim[0] >= xlim[1] or ylim[0] >= ylim[1]:
+                messagebox.showwarning("Valores Inválidos", 
+                    "Asegúrese que Min < Max para ambos ejes")
+                return
+            
+            # Actualizar gráfico si hay sistema
+            if self.sistema_actual:
+                grapher = Grapher(self.sistema_actual)
+                grapher.establecer_limites(xlim, ylim)
+                grapher.crear_grafica(self.ax, xlim, ylim)
+                self.canvas.draw()
+        
+        except ValueError:
+            messagebox.showerror("Error", "Ingrese valores numéricos válidos para los límites")
+    
+    def _reset_limites(self):
+        """Resetea los límites a valores por defecto"""
+        self.xlim_min.set(-5.0)
+        self.xlim_max.set(5.0)
+        self.ylim_min.set(-5.0)
+        self.ylim_max.set(5.0)
+        self.actualizar_limites()
     
     def mostrar_analisis_popup(self):
         """Abre ventana popup con análisis detallado"""

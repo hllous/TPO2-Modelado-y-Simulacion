@@ -169,24 +169,22 @@ class SistemaDinamico2D:
             return np.array([0.0, 0.0])
     
     def _agregar_termino_forzado(self, dXdt, t):
-        """Agrega término forzado a la derivada"""
+        """Agrega término forzado a la derivada (simplificado con KISS)"""
         tipo = self.termino_forzado['tipo']
-        c1 = self.termino_forzado['coef1']
-        c2 = self.termino_forzado['coef2']
+        c1, c2 = self.termino_forzado['coef1'], self.termino_forzado['coef2']
         param = self.termino_forzado.get('param', 0)
         
-        if tipo == 'constante':
-            dXdt[0] += c1
-            dXdt[1] += c2
-        elif tipo == 'exponencial':
-            dXdt[0] += c1 * np.exp(param * t)
-            dXdt[1] += c2 * np.exp(param * t)
-        elif tipo == 'seno':
-            dXdt[0] += c1 * np.sin(param * t)
-            dXdt[1] += c2 * np.sin(param * t)
-        elif tipo == 'coseno':
-            dXdt[0] += c1 * np.cos(param * t)
-            dXdt[1] += c2 * np.cos(param * t)
+        # Mapeo simplificado de términos forzados
+        funciones_forzado = {
+            'constante': lambda t: 1,
+            'exponencial': lambda t: np.exp(param * t),
+            'seno': lambda t: np.sin(param * t),
+            'coseno': lambda t: np.cos(param * t)
+        }
+        
+        factor = funciones_forzado.get(tipo, lambda t: 0)(t)
+        dXdt[0] += c1 * factor
+        dXdt[1] += c2 * factor
         
         return dXdt
     

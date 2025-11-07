@@ -5,14 +5,45 @@ Punto de entrada visual con acceso a módulos
 
 import tkinter as tk
 from tkinter import ttk
-from ui.estilos import configurar_estilos_ttk, COLORES, FUENTES
+from ui.estilos import configurar_estilos_ttk, COLORES, FUENTES, ESPACIOS
 from gui.interfaz import InterfazGrafica
 from gui.bifurcacion import InterfazBifurcacion
 from gui.sistema_1d import InterfazSistema1D
+from gui.hamilton import InterfazHamilton
+from gui.lotka_volterra import InterfazLotkaVolterra
 
 
 class InterfazPrincipal:
     """Interfaz principal moderna con acceso a módulos"""
+    
+    # Definición de módulos - DRY
+    MODULOS = {
+        '2d': {
+            'titulo': '📊 Sistemas 2D',
+            'clase': InterfazGrafica,
+            'descripcion': 'Análisis completo de sistemas dinámicos lineales y no lineales\ncon visualización de flujo de fase, campos de dirección y puntos de equilibrio.'
+        },
+        '1d': {
+            'titulo': '📈 Sistemas 1D',
+            'clase': InterfazSistema1D,
+            'descripcion': 'Análisis completo de sistemas dinámicos unidimensionales\nno lineales con campos de fase, trayectorias y equilibrios.'
+        },
+        'bifurcacion': {
+            'titulo': '🔀 Bifurcaciones',
+            'clase': InterfazBifurcacion,
+            'descripcion': 'Análisis de bifurcaciones en sistemas dinámicos 1D\ncon diagramas de bifurcación y análisis de estabilidad.'
+        },
+        'hamilton': {
+            'titulo': '⚡ Hamilton',
+            'clase': InterfazHamilton,
+            'descripcion': 'Análisis de sistemas Hamiltonianos y conservativos\nverifica si un sistema es conservativo paso a paso.'
+        },
+        'lotka_volterra': {
+            'titulo': '🦅 Lotka-Volterra',
+            'clase': InterfazLotkaVolterra,
+            'descripcion': 'Análisis del sistema depredador-presa\ncon oscilaciones periódicas y análisis detallado de fases.'
+        }
+    }
     
     def __init__(self, root):
         """
@@ -23,7 +54,7 @@ class InterfazPrincipal:
         """
         self.root = root
         self.root.title("Sistemas Dinámicos - Aplicación Principal")
-        self.root.geometry("900x600")
+        self.root.geometry("1000x650")
         self.root.configure(bg=COLORES['fondo'])
         
         # Configurar estilos
@@ -60,85 +91,48 @@ class InterfazPrincipal:
             text="Sistemas\nDinámicos",
             bg=COLORES['primario'],
             fg='white',
-            font=FUENTES['titulo'],
+            font=FUENTES['titulo_modulo'],
             justify=tk.CENTER
         )
         logo_label.pack(expand=True)
         
         # Separador
-        separador = tk.Frame(sidebar, bg='#e0e0e0', height=1)
+        separador = tk.Frame(sidebar, bg=COLORES['borde'], height=1)
         separador.pack(side=tk.TOP, fill=tk.X)
         
         # Contenedor de botones
-        botones_frame = ttk.Frame(sidebar, padding="10")
-        botones_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=0, pady=10)
+        botones_frame = ttk.Frame(sidebar, padding=f"{ESPACIOS['md']}")
+        botones_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=0, pady=ESPACIOS['md'])
         
-        # Botones de módulos
+        # Crear botones dinámicamente
         self.botones_modulos = {}
-        
-        # Botón módulo 2D
-        btn_2d = tk.Button(
-            botones_frame,
-            text="📊 Sistemas 2D",
-            bg=COLORES['primario'],
-            fg='white',
-            font=('Arial', 11, 'bold'),
-            padx=15,
-            pady=15,
-            relief=tk.FLAT,
-            cursor='hand2',
-            command=self.abrir_modulo_2d,
-            activebackground=COLORES['primario_hover']
-        )
-        btn_2d.pack(side=tk.TOP, fill=tk.X, pady=8)
-        self.botones_modulos['2d'] = btn_2d
-        
-
-        
-        # Botón módulo 1D
-        btn_1d = tk.Button(
-            botones_frame,
-            text="📈 Sistemas 1D",
-            bg=COLORES['primario'],
-            fg='white',
-            font=('Arial', 11, 'bold'),
-            padx=15,
-            pady=15,
-            relief=tk.FLAT,
-            cursor='hand2',
-            command=self.abrir_modulo_1d,
-            activebackground=COLORES['primario_hover']
-        )
-        btn_1d.pack(side=tk.TOP, fill=tk.X, pady=8)
-        self.botones_modulos['1d'] = btn_1d
-        
-        # Botón módulo bifurcación
-        btn_bifurcacion = tk.Button(
-            botones_frame,
-            text="🔀 Bifurcaciones",
-            bg=COLORES['primario'],
-            fg='white',
-            font=('Arial', 11, 'bold'),
-            padx=15,
-            pady=15,
-            relief=tk.FLAT,
-            cursor='hand2',
-            command=self.abrir_modulo_bifurcacion,
-            activebackground=COLORES['primario_hover']
-        )
-        btn_bifurcacion.pack(side=tk.TOP, fill=tk.X, pady=8)
-        self.botones_modulos['bifurcacion'] = btn_bifurcacion
+        for key, config in self.MODULOS.items():
+            btn = tk.Button(
+                botones_frame,
+                text=config['titulo'],
+                bg=COLORES['primario'],
+                fg='white',
+                font=FUENTES['normal_bold'],
+                padx=ESPACIOS['md'],
+                pady=ESPACIOS['md'],
+                relief=tk.FLAT,
+                cursor='hand2',
+                command=lambda k=key: self._abrir_modulo(k),
+                activebackground=COLORES['primario_hover']
+            )
+            btn.pack(side=tk.TOP, fill=tk.X, pady=ESPACIOS['sm'])
+            self.botones_modulos[key] = btn
         
         # Footer del sidebar
         footer = tk.Frame(sidebar, bg=COLORES['fondo'])
-        footer.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=10)
+        footer.pack(side=tk.BOTTOM, fill=tk.X, padx=ESPACIOS['md'], pady=ESPACIOS['md'])
         
         info_text = tk.Label(
             footer,
-            text="Haz clic en un módulo\npara comenzar",
+            text="Selecciona un\nmódulo",
             bg=COLORES['fondo'],
             fg=COLORES['texto_secundario'],
-            font=('Arial', 8),
+            font=FUENTES['muy_pequena'],
             justify=tk.CENTER
         )
         info_text.pack()
@@ -158,7 +152,7 @@ class InterfazPrincipal:
             widget.destroy()
         
         # Frame principal de bienvenida
-        welcome_frame = ttk.Frame(self.content_frame, padding="40")
+        welcome_frame = ttk.Frame(self.content_frame, padding=f"{ESPACIOS['lg']}")
         welcome_frame.pack(fill=tk.BOTH, expand=True)
         welcome_frame.columnconfigure(0, weight=1)
         welcome_frame.rowconfigure(1, weight=1)
@@ -168,10 +162,10 @@ class InterfazPrincipal:
             welcome_frame,
             text="Bienvenido a Sistemas Dinámicos",
             font=FUENTES['titulo'],
-            fg=COLORES['texto_principal'],
+            fg=COLORES['primario'],
             bg=COLORES['fondo']
         )
-        titulo.grid(row=0, column=0, pady=(0, 20))
+        titulo.grid(row=0, column=0, pady=(0, ESPACIOS['lg']))
         
         # Contenido central
         content = tk.Frame(welcome_frame, bg=COLORES['fondo'])
@@ -183,7 +177,7 @@ class InterfazPrincipal:
         mensaje = tk.Label(
             content,
             text="Selecciona un módulo desde la barra lateral\npara comenzar a explorar sistemas dinámicos",
-            font=('Arial', 14),
+            font=FUENTES['titulo_seccion'],
             fg=COLORES['texto_secundario'],
             bg=COLORES['fondo'],
             justify=tk.CENTER
@@ -191,56 +185,33 @@ class InterfazPrincipal:
         mensaje.pack(expand=True)
         
         # Descripción de módulos disponibles
-        descripcion_frame = ttk.Frame(welcome_frame, padding="20")
-        descripcion_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=20)
+        descripcion_frame = ttk.Frame(welcome_frame, padding=f"{ESPACIOS['lg']}")
+        descripcion_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=ESPACIOS['md'])
         
         descripcion_titulo = tk.Label(
             descripcion_frame,
             text="Módulos Disponibles:",
-            font=('Arial', 12, 'bold'),
+            font=FUENTES['titulo_seccion'],
             fg=COLORES['texto_principal'],
             bg=COLORES['fondo']
         )
-        descripcion_titulo.pack(anchor=tk.W, pady=(0, 10))
+        descripcion_titulo.pack(anchor=tk.W, pady=(0, ESPACIOS['md']))
         
-        # Información de módulo 2D
-        modulo_2d_text = tk.Label(
-            descripcion_frame,
-            text="📊 Sistemas 2D - Análisis completo de sistemas dinámicos lineales y no lineales\ncon visualización de flujo de fase, campos de dirección y puntos de equilibrio.",
-            font=('Arial', 10),
-            fg=COLORES['texto_secundario'],
-            bg=COLORES['fondo'],
-            justify=tk.LEFT,
-            wraplength=400
-        )
-        modulo_2d_text.pack(anchor=tk.W, pady=5)
-        
-        # Información módulo 1D
-        modulo_1d_text = tk.Label(
-            descripcion_frame,
-            text="📈 Sistemas 1D - Análisis completo de sistemas dinámicos unidimensionales\nno lineales con campos de fase, trayectorias y equilibrios.",
-            font=('Arial', 10),
-            fg=COLORES['texto_secundario'],
-            bg=COLORES['fondo'],
-            justify=tk.LEFT,
-            wraplength=400
-        )
-        modulo_1d_text.pack(anchor=tk.W, pady=5)
-        
-        # Información bifurcación
-        bifurcacion_text = tk.Label(
-            descripcion_frame,
-            text="🔀 Bifurcaciones - Análisis de bifurcaciones en sistemas dinámicos 1D\ncon diagramas de bifurcación y análisis de estabilidad.",
-            font=('Arial', 10),
-            fg=COLORES['texto_secundario'],
-            bg=COLORES['fondo'],
-            justify=tk.LEFT,
-            wraplength=400
-        )
-        bifurcacion_text.pack(anchor=tk.W, pady=5)
+        # Mostrar descripción de módulos
+        for key, config in self.MODULOS.items():
+            modulo_text = tk.Label(
+                descripcion_frame,
+                text=f"{config['titulo']} - {config['descripcion']}",
+                font=FUENTES['pequena'],
+                fg=COLORES['texto_secundario'],
+                bg=COLORES['fondo'],
+                justify=tk.LEFT,
+                wraplength=450
+            )
+            modulo_text.pack(anchor=tk.W, pady=ESPACIOS['sm'])
     
-    def abrir_modulo_2d(self):
-        """Abre el módulo de sistemas 2D"""
+    def _abrir_modulo(self, modulo_key):
+        """Abre el módulo especificado"""
         # Limpiar contenido anterior
         for widget in self.content_frame.winfo_children():
             widget.destroy()
@@ -249,40 +220,19 @@ class InterfazPrincipal:
         modulo_frame = ttk.Frame(self.content_frame)
         modulo_frame.pack(fill=tk.BOTH, expand=True)
         
-        # Crear módulo 2D pasando el frame como contenedor
-        self.modulo_activo = 'sistemas_2d'
-        interfaz_2d = InterfazGrafica(modulo_frame)
-        interfaz_2d.crear_widgets()
-    
-    def abrir_modulo_bifurcacion(self):
-        """Abre el módulo de bifurcaciones"""
-        # Limpiar contenido anterior
-        for widget in self.content_frame.winfo_children():
-            widget.destroy()
+        # Obtener configuración del módulo
+        config = self.MODULOS[modulo_key]
         
-        # Crear frame para el módulo
-        modulo_frame = ttk.Frame(self.content_frame)
-        modulo_frame.pack(fill=tk.BOTH, expand=True)
+        # Crear instancia del módulo
+        self.modulo_activo = modulo_key
+        modulo_instancia = config['clase'](modulo_frame)
         
-        # Crear módulo bifurcación pasando el frame como contenedor
-        self.modulo_activo = 'bifurcacion'
-        interfaz_bifurcacion = InterfazBifurcacion(modulo_frame)
-    
-    def abrir_modulo_1d(self):
-        """Abre el módulo de sistemas 1D"""
-        # Limpiar contenido anterior
-        for widget in self.content_frame.winfo_children():
-            widget.destroy()
-        
-        # Crear frame para el módulo
-        modulo_frame = ttk.Frame(self.content_frame)
-        modulo_frame.pack(fill=tk.BOTH, expand=True)
-        
-        # Crear módulo 1D pasando el frame como contenedor
-        self.modulo_activo = 'sistemas_1d'
-        interfaz_1d = InterfazSistema1D(modulo_frame)
+        # Si tiene método crear_widgets, llamarlo
+        if hasattr(modulo_instancia, 'crear_widgets'):
+            modulo_instancia.crear_widgets()
     
     def volver_a_inicio(self):
         """Vuelve a la pantalla de inicio"""
         self.modulo_activo = None
         self._mostrar_bienvenida()
+

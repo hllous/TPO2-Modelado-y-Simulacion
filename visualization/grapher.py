@@ -1,164 +1,107 @@
 """
 Módulo para crear gráficas del sistema dinámico
+Simplificado con utilidades DRY
 """
 
 import numpy as np
-import matplotlib.pyplot as plt
-from scipy.integrate import odeint
+from visualization.math_utils import (
+    calcular_campo_vectorial, normalizar_vectores, 
+    encontrar_limites_automaticos
+)
 
 
 class Grapher:
     """Encargada de crear las visualizaciones del sistema"""
     
+    DEFAULT_XLIM = (-5, 5)
+    DEFAULT_YLIM = (-5, 5)
+    
     def __init__(self, sistema):
-        """
-        Inicializa el graficador
-        
-        Parámetros:
-        - sistema: instancia de SistemaDinamico2D
-        """
+        """Inicializa el graficador"""
         self.sistema = sistema
+        self.xlim = self.DEFAULT_XLIM
+        self.ylim = self.DEFAULT_YLIM
+    
+    def establecer_limites(self, xlim=None, ylim=None):
+        """Establece los límites de la visualización"""
+        if xlim:
+            self.xlim = xlim
+        if ylim:
+            self.ylim = ylim
     
     def crear_grafica(self, ax, xlim=None, ylim=None, n_puntos=20):
-        """
-        Crea gráfica completa con campo de direcciones, autovectores y puntos de equilibrio
-        
-        Parámetros:
-        - ax: eje de matplotlib
-        - xlim, ylim: límites de visualización (auto si None)
-        - n_puntos: resolución del campo de direcciones
-        """
+        """Crea gráfica completa con visualización del sistema"""
         ax.clear()
         
-        # Calcular límites automáticos si no se especifican
-        if xlim is None or ylim is None:
-            xlim, ylim = self._calcular_limites_automaticos()
+        xlim = xlim or self.xlim
+        ylim = ylim or self.ylim
         
-        # Calcular y dibujar campo de direcciones
+        # Calcular límites automáticos si están en valores por defecto
+        if xlim == self.DEFAULT_XLIM and ylim == self.DEFAULT_YLIM:
+            xlim, ylim = encontrar_limites_automaticos(self.sistema)
+        
         self._dibujar_campo_direcciones(ax, xlim, ylim, n_puntos)
-        
-        # Dibujar autovectores si aplica
         self._dibujar_autovectores(ax)
-        
-        # Marcar puntos de equilibrio
         self._marcar_puntos_equilibrio(ax, xlim, ylim)
-        
-        # Configurar apariencia
         self._configurar_ejes(ax, xlim, ylim)
-        
-        # Agregar título
         self._agregar_titulo(ax)
     
-    def _calcular_limites_automaticos(self):
-        """Calcula límites automáticos según el sistema"""
-        # Buscar puntos de equilibrio en un rango amplio
-        puntos_eq = self.sistema.encontrar_puntos_equilibrio((-10, 10), (-10, 10))
-        
-        if puntos_eq and len(puntos_eq) > 0:
-            # Centrar en puntos de equilibrio
-            xs = [p[0] for p in puntos_eq]
-            ys = [p[1] for p in puntos_eq]
-            
-            x_center = np.mean(xs)
-            y_center = np.mean(ys)
-            
-            # Rango basado en dispersión
-            x_range = max(abs(max(xs) - min(xs)), 3) * 1.5
-            y_range = max(abs(max(ys) - min(ys)), 3) * 1.5
-            
-            xlim = (x_center - x_range, x_center + x_range)
-            ylim = (y_center - y_range, y_center + y_range)
-        else:
-            # Límites por defecto
-            xlim = (-5, 5)
-            ylim = (-5, 5)
-        
-        return xlim, ylim
-    
     def _dibujar_campo_direcciones(self, ax, xlim, ylim, n_puntos):
-        """Dibuja el campo de direcciones (quiver plot)"""
+        """Dibuja el campo de direcciones"""
         x = np.linspace(xlim[0], xlim[1], n_puntos)
         y = np.linspace(ylim[0], ylim[1], n_puntos)
         X, Y = np.meshgrid(x, y)
         
-        # Calcular derivadas
-        if self.sistema.funcion_personalizada:
-            U, V = self._calcular_derivadas_personalizadas(X, Y)
-        else:
-            U, V = self._calcular_derivadas_lineales(X, Y)
+        U, V = calcular_campo_vectorial(self.sistema, X, Y)
+        U_norm, V_norm, M = normalizar_vectores(U, V)
         
-        # Normalizar
-        M = np.sqrt(U**2 + V**2)
-        M[M == 0] = 1
-        U_norm = U / M
-        V_norm = V / M
-        
-        # Dibujar
         ax.quiver(X, Y, U_norm, V_norm, M, cmap='viridis', alpha=0.6)
     
-    def _calcular_derivadas_personalizadas(self, X, Y):
-        """Calcula derivadas para sistemas personalizados"""
-        U = np.zeros_like(X)
-        V = np.zeros_like(Y)
-        
-        for i in range(X.shape[0]):
-            for j in range(X.shape[1]):
-                derivadas = self.sistema.sistema_ecuaciones([X[i,j], Y[i,j]], 0)
-                U[i,j] = derivadas[0]
-                V[i,j] = derivadas[1]
-        
-        return U, V
-    
-    def _calcular_derivadas_lineales(self, X, Y):
-        """Calcula derivadas para sistemas lineales"""
-        U = self.sistema.A[0, 0] * X + self.sistema.A[0, 1] * Y
-        V = self.sistema.A[1, 0] * X + self.sistema.A[1, 1] * Y
-        return U, V
-    
     def _dibujar_autovectores(self, ax):
-        """Dibuja autovectores si el sistema los tiene"""
-        tiene_autovalores = (
+        """Dibuja autovectores si aplican"""
+        si_dibujar = (
             not self.sistema.funcion_personalizada and 
             self.sistema.autovalores is not None and 
-            not self.sistema.termino_forzado
+            not self.sistema.termino_forzado and
+            not np.iscomplex(self.sistema.autovalores[0])
         )
         
-        if not tiene_autovalores or np.iscomplex(self.sistema.autovalores[0]):
+        if not si_dibujar:
             return
         
         for i in range(2):
             v = self.sistema.autovectores[:, i].real
             if abs(self.sistema.autovalores[i]) > 1e-10:
                 scale = 2.5
-                # Dibujar autovector desde origen
-                ax.arrow(0, 0, scale * v[0], scale * v[1], 
+                ax.arrow(0, 0, scale*v[0], scale*v[1], 
                         head_width=0.2, head_length=0.15, 
                         fc='red', ec='red', linewidth=2, alpha=0.8)
-                ax.arrow(0, 0, -scale * v[0], -scale * v[1], 
+                ax.arrow(0, 0, -scale*v[0], -scale*v[1], 
                         head_width=0.2, head_length=0.15, 
                         fc='red', ec='red', linewidth=2, alpha=0.8)
     
     def _marcar_puntos_equilibrio(self, ax, xlim, ylim):
-        """Marca los puntos de equilibrio en la gráfica"""
+        """Marca puntos de equilibrio"""
         puntos_eq = self.sistema.encontrar_puntos_equilibrio(xlim, ylim)
         
         if puntos_eq:
             for i, (px, py) in enumerate(puntos_eq):
-                kwargs = {'markersize': 12, 'markeredgecolor': 'white', 
-                         'markeredgewidth': 2, 'zorder': 5}
+                kwargs = {
+                    'markersize': 12, 'markeredgecolor': 'white',
+                    'markeredgewidth': 2, 'zorder': 5
+                }
                 if i == 0:
                     kwargs['label'] = 'Punto de equilibrio'
                 ax.plot(px, py, 'ko', **kwargs)
     
     def _configurar_ejes(self, ax, xlim, ylim):
-        """Configura la apariencia de los ejes"""
+        """Configura apariencia de los ejes"""
         ax.axhline(y=0, color='k', linestyle='-', linewidth=0.5)
         ax.axvline(x=0, color='k', linestyle='-', linewidth=0.5)
         ax.grid(True, alpha=0.3)
         ax.set_xlim(xlim)
         ax.set_ylim(ylim)
         
-        # Etiquetas
         if self.sistema.funcion_personalizada:
             ax.set_xlabel('x', fontsize=11)
             ax.set_ylabel('y', fontsize=11)
@@ -167,16 +110,14 @@ class Grapher:
             ax.set_ylabel('x₂', fontsize=11)
     
     def _agregar_titulo(self, ax):
-        """Agrega título descriptivo a la gráfica"""
+        """Agrega título descriptivo"""
         if self.sistema.termino_forzado:
             titulo = 'Sistema No Homogéneo: dx/dt = Ax + f(t)\n'
             tipo, estab = self.sistema.clasificar_punto_equilibrio()
             titulo += f'Parte homogénea: {tipo} ({estab})'
-        
         elif self.sistema.funcion_personalizada:
             titulo = 'Sistema Personalizado\n'
             titulo += 'No Lineal' if self.sistema.es_no_lineal else 'Lineal'
-        
         else:
             tipo, estab = self.sistema.clasificar_punto_equilibrio()
             titulo = f'Sistema Dinámico 2D: {tipo}\n{estab}'

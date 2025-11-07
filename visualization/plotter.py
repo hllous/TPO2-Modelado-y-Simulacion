@@ -1,87 +1,17 @@
 """
-Funciones auxiliares para cálculos de trayectorias y campos vectoriales
+Funciones auxiliares para trayectorias (simplificado con DRY)
+calculate_vector_field se reemplazó con math_utils.calcular_campo_vectorial
 """
 
 import numpy as np
 from scipy.integrate import odeint
 
 
-def calculate_vector_field(sistema, X, Y):
-    """
-    Calcula el campo vectorial en una malla de puntos
-    
-    Retorna: (U, V) - componentes del campo
-    """
-    U = np.zeros_like(X)
-    V = np.zeros_like(Y)
-    
-    for i in range(X.shape[0]):
-        for j in range(X.shape[1]):
-            derivadas = sistema.sistema_ecuaciones([X[i,j], Y[i,j]], 0)
-            U[i,j] = derivadas[0]
-            V[i,j] = derivadas[1]
-    
-    return U, V
-
-
-def plot_trajectory(ax, sistema, condicion_inicial, tiempo_max=10, color='b', alpha=0.8):
-    """
-    Calcula y dibuja una trayectoria del sistema con flechas direccionales
-    
-    Parámetros:
-    - ax: eje matplotlib
-    - sistema: SistemaDinamico2D
-    - condicion_inicial: [x0, y0]
-    - tiempo_max: tiempo máximo de integración
-    - color: color de la línea
-    - alpha: transparencia
-    
-    Retorna: objeto de línea plotted
-    """
-    t = np.linspace(0, tiempo_max, 1000)
-    
-    try:
-        solucion = odeint(sistema.sistema_ecuaciones, condicion_inicial, t)
-        linea = ax.plot(solucion[:, 0], solucion[:, 1], 
-                       color=color, linewidth=2, alpha=alpha)
-        
-        # Punto inicial
-        ax.plot(condicion_inicial[0], condicion_inicial[1], 'o', 
-               color=color, markersize=8, markeredgecolor='darkred', markeredgewidth=2)
-        
-        # Agregar flechas cada cierto número de puntos
-        num_arrows = 5  # Número de flechas a mostrar
-        arrow_indices = np.linspace(50, len(solucion)-50, num_arrows, dtype=int)
-        
-        for idx in arrow_indices:
-            if idx < len(solucion) - 1:
-                x_start, y_start = solucion[idx]
-                x_end, y_end = solucion[idx + 1]
-                
-                # Dibujar flecha
-                ax.annotate('', xy=(x_end, y_end), xytext=(x_start, y_start),
-                           arrowprops=dict(arrowstyle='->', color=color, 
-                                         lw=2, alpha=alpha*0.8))
-        
-        return linea
-    except:
-        return None
-
-
 def integrate_trajectory_limited(sistema, condicion_inicial, max_distance=100, 
                                 min_distance=0.01, max_steps=1000, direccion=1):
     """
     Integra trayectoria con límites para evitar inestabilidades numéricas
-    
-    Parámetros:
-    - sistema: SistemaDinamico2D
-    - condicion_inicial: [x0, y0]
-    - max_distance: distancia máxima del origen
-    - min_distance: distancia mínima del origen
-    - max_steps: máximo número de pasos
-    - direccion: 1 para adelante, -1 para atrás
-    
-    Retorna: array de puntos
+    Parámetro simplificado: dirección es solo 1 o -1
     """
     puntos = []
     t_actual = 0
