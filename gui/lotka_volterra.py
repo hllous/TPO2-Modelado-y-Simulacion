@@ -12,6 +12,7 @@ from matplotlib.figure import Figure
 
 from core.lotka_volterra import SistemaLotkaVolterra
 from core.analizador_lv import AnalizadorLotkaVolterra
+from core.sistema import SistemaDinamico2D
 from visualization.lotka_volterra import GrapherLotkaVolterra
 from input_module.lotka_volterra import InputLotkaVolterra
 from ui.estilos import COLORES, FUENTES
@@ -106,12 +107,31 @@ class InterfazLotkaVolterra:
         """Actualiza el sistema con parámetros actuales"""
         params = self.input_panel.obtener_parametros()
         
-        self.sistema = SistemaLotkaVolterra(
-            alpha=params['alpha'],
-            beta=params['beta'],
-            gamma=params['gamma'],
-            delta=params['delta']
-        )
+        if params.get('modo') == 'personalizado':
+            # Modo personalizado con funciones
+            try:
+                from core.sistema import SistemaDinamico2D
+                self.sistema = SistemaDinamico2D(
+                    funcion_personalizada={
+                        'f1': params['func_presa'],
+                        'f2': params['func_depredador'],
+                        'es_lineal': False
+                    }
+                )
+            except Exception as e:
+                # Fallback: usar Lotka-Volterra estándar
+                print(f"Error en sistema personalizado: {e}")
+                self.sistema = SistemaLotkaVolterra(
+                    alpha=1.0, beta=0.1, gamma=0.1, delta=0.5
+                )
+        else:
+            # Modo estándar
+            self.sistema = SistemaLotkaVolterra(
+                alpha=params.get('alpha', 1.0),
+                beta=params.get('beta', 0.1),
+                gamma=params.get('gamma', 0.1),
+                delta=params.get('delta', 0.5)
+            )
         
         self.grapher = GrapherLotkaVolterra(self.sistema)
         self.analizador = AnalizadorLotkaVolterra(self.sistema)
