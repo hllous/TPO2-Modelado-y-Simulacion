@@ -7,6 +7,7 @@ import numpy as np
 import sympy as sp
 from scipy.integrate import odeint
 from scipy.optimize import fsolve
+from core.utils import normalizar_funciones, FUNCIONES_SYMPY, crear_diccionario_variables_evaluacion
 
 
 class SistemaDinamico2D:
@@ -55,16 +56,15 @@ class SistemaDinamico2D:
             self.x_sym = sp.Symbol('x', real=True)
             self.y_sym = sp.Symbol('y', real=True)
             
-            # Parsear las funciones
-            f1_str = self.funcion_personalizada['f1'].replace('sen', 'sin')
-            f2_str = self.funcion_personalizada['f2'].replace('sen', 'sin')
+            # Normalizar y parsear las funciones
+            f1_str = normalizar_funciones(self.funcion_personalizada['f1'])
+            f2_str = normalizar_funciones(self.funcion_personalizada['f2'])
             
             # Crear diccionario de símbolos y funciones disponibles para sympify
             local_dict = {
-                'x': self.x_sym, 'y': self.y_sym,
-                'sin': sp.sin, 'cos': sp.cos, 'tan': sp.tan,
-                'exp': sp.exp, 'log': sp.log, 'sqrt': sp.sqrt,
-                'pi': sp.pi, 'e': sp.E
+                'x': self.x_sym, 
+                'y': self.y_sym,
+                **FUNCIONES_SYMPY
             }
             
             # Agregar símbolos para los parámetros
@@ -153,24 +153,12 @@ class SistemaDinamico2D:
     def _evaluar_funciones_personalizadas(self, x1, x2, t):
         """Evalúa funciones personalizadas de forma segura"""
         try:
-            f1_expr = self.funcion_personalizada['f1']
-            f2_expr = self.funcion_personalizada['f2']
+            # Normalizar y obtener expresiones
+            f1_expr = normalizar_funciones(self.funcion_personalizada['f1'])
+            f2_expr = normalizar_funciones(self.funcion_personalizada['f2'])
             
-            # Normalizar 'sen' a 'sin'
-            f1_expr = f1_expr.replace('sen', 'sin')
-            f2_expr = f2_expr.replace('sen', 'sin')
-            
-            variables = {
-                'x1': x1, 'x2': x2, 't': t,
-                'x': x1, 'y': x2,
-                'np': np,
-                'sin': np.sin, 'sen': np.sin, 'cos': np.cos, 'tan': np.tan,
-                'exp': np.exp, 'log': np.log, 'sqrt': np.sqrt,
-                'abs': np.abs, 'pi': np.pi, 'e': np.e
-            }
-            
-            # Agregar parámetros a las variables disponibles
-            variables.update(self.parametros)
+            # Crear diccionario de variables usando utilidad
+            variables = crear_diccionario_variables_evaluacion(x1, x2, t, self.parametros)
             
             dx1dt = float(eval(f1_expr, {"__builtins__": {}}, variables))
             dx2dt = float(eval(f2_expr, {"__builtins__": {}}, variables))

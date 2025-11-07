@@ -26,7 +26,7 @@ def calculate_vector_field(sistema, X, Y):
 
 def plot_trajectory(ax, sistema, condicion_inicial, tiempo_max=10, color='b', alpha=0.8):
     """
-    Calcula e dibuja una trayectoria del sistema con flechas direccionales
+    Calcula y dibuja una trayectoria del sistema con flechas direccionales
     
     Parámetros:
     - ax: eje matplotlib
@@ -57,10 +57,6 @@ def plot_trajectory(ax, sistema, condicion_inicial, tiempo_max=10, color='b', al
             if idx < len(solucion) - 1:
                 x_start, y_start = solucion[idx]
                 x_end, y_end = solucion[idx + 1]
-                
-                # Calcular dirección
-                dx = x_end - x_start
-                dy = y_end - y_start
                 
                 # Dibujar flecha
                 ax.annotate('', xy=(x_end, y_end), xytext=(x_start, y_start),

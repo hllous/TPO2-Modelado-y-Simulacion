@@ -12,6 +12,7 @@ import matplotlib
 matplotlib.use('TkAgg')
 
 from core.sistema import SistemaDinamico2D
+from core.utils import normalizar_funciones
 from visualization.grapher import Grapher
 from visualization.plotter import integrate_trajectory_limited
 from ui.widgets import ToolTip
@@ -58,10 +59,6 @@ class InterfazGrafica:
         while not isinstance(widget, tk.Tk):
             widget = widget.master
         return widget
-    
-    def _usar_grid(self):
-        """Determina si se debe usar grid o pack según el tipo de root"""
-        return isinstance(self.root, tk.Tk)
     
     def _inicializar_variables(self):
         """Inicializa todas las variables de control de la UI"""
@@ -513,7 +510,7 @@ class InterfazGrafica:
             
             self.label_formula.config(text=formula)
         except:
-            pass
+            pass  # Si hay error en conversión, no actualizar fórmula
     
     def aplicar_termino_forzado(self):
         """Aplica el término forzado y actualiza la gráfica"""
@@ -573,16 +570,15 @@ class InterfazGrafica:
             messagebox.showwarning("Advertencia", "Por favor ingrese ambas funciones")
             return None
         
-        # Normalizar nombres de funciones (sen -> sin)
-        f1 = f1.replace('sen', 'sin')
-        f2 = f2.replace('sen', 'sin')
+        # Normalizar nombres de funciones
+        f1 = normalizar_funciones(f1)
+        f2 = normalizar_funciones(f2)
         
         # Parsear parámetro u
         parametros = {}
         params_str = self.parametros_expr.get().strip()
         if params_str:
             try:
-                # Solo parsear el valor numérico de u
                 parametros['u'] = float(params_str)
             except Exception as e:
                 messagebox.showerror("Error en parámetro u",
@@ -590,25 +586,7 @@ class InterfazGrafica:
                     f"Ingrese solo el valor numérico. Ej: 0.5")
                 return None
         
-        # Validar funciones
-        try:
-            test_vars = {
-                'x': 1.0, 'y': 1.0, 'x1': 1.0, 'x2': 1.0, 't': 0.0,
-                'np': np, 'sin': np.sin, 'cos': np.cos, 'tan': np.tan,
-                'exp': np.exp, 'log': np.log, 'sqrt': np.sqrt,
-                'abs': np.abs, 'pi': np.pi, 'e': np.e
-            }
-            # Agregar parámetros a las variables de prueba
-            test_vars.update(parametros)
-            
-            float(eval(f1, {"__builtins__": {}}, test_vars))
-            float(eval(f2, {"__builtins__": {}}, test_vars))
-        except Exception as e:
-            messagebox.showerror("Error en funciones", 
-                f"Error al evaluar:\n{str(e)}\n\nAsegúrese de usar la sintaxis correcta.\n"
-                f"Ejemplos: sin(x), cos(t), exp(-t), u*x, mu*y")
-            return None
-        
+        # Crear sistema directamente (la validación se hace en core.sistema)
         return SistemaDinamico2D(
             funcion_personalizada={'f1': f1, 'f2': f2, 'es_lineal': False},
             parametros=parametros

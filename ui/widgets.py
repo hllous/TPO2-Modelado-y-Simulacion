@@ -37,7 +37,7 @@ class ToolTip:
                             padx=5, pady=3)
             label.pack()
         except:
-            pass
+            pass  # Ignorar errores de bbox en widgets que no lo soportan
     
     def hide_tooltip(self, event=None):
         """Oculta el tooltip"""
@@ -45,5 +45,5 @@ class ToolTip:
             try:
                 self.tooltip.destroy()
             except:
-                pass
+                pass  # Tooltip ya destruido
             self.tooltip = None

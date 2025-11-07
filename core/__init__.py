@@ -1,11 +1,9 @@
 """
 Módulo core: contiene la lógica matemática del sistema dinámico
 """
-try:
-    from .sistema import SistemaDinamico2D
-    from .bifurcacion import AnalizadorBifurcacion
-except ImportError:
-    from sistema import SistemaDinamico2D
-    from bifurcacion import AnalizadorBifurcacion
+from .sistema import SistemaDinamico2D
+from .bifurcacion import AnalizadorBifurcacion
+from .utils import normalizar_funciones, FUNCIONES_NUMPY, FUNCIONES_SYMPY
 
-__all__ = ['SistemaDinamico2D', 'AnalizadorBifurcacion']
+__all__ = ['SistemaDinamico2D', 'AnalizadorBifurcacion', 
+           'normalizar_funciones', 'FUNCIONES_NUMPY', 'FUNCIONES_SYMPY']

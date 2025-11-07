@@ -89,7 +89,7 @@ class AnalizadorBifurcacion:
                     estab = self.estabilidad(x_float, r_value)
                     results.append({'x': x_float, 'estabilidad': estab})
             except (TypeError, ValueError):
-                pass
+                pass  # Ignorar equilibrios complejos o no convertibles
                 
         return results
     
