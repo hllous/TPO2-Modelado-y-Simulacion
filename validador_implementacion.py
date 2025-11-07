@@ -29,7 +29,7 @@ def validar_importaciones():
         from input_module.lotka_volterra import InputLotkaVolterra
         
         print("✓ Importando gui.lotka_volterra...")
-        from gui.lotka_volterra import ModuloLotkaVolterra
+        from gui.lotka_volterra import InterfazLotkaVolterra
         
         print("✓ Importando core.lotka_volterra...")
         from core.lotka_volterra import SistemaLotkaVolterra
