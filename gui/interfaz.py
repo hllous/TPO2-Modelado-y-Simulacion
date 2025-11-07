@@ -83,6 +83,9 @@ class InterfazGrafica:
         self.f1_expr = tk.StringVar(value="-x")
         self.f2_expr = tk.StringVar(value="-y")
         
+        # Variables de parámetros personalizados
+        self.parametros_expr = tk.StringVar(value="")  # Solo el valor de 'u'
+        
         # Sistema actual
         self.sistema_actual = None
     
@@ -241,40 +244,56 @@ class InterfazGrafica:
                                   width=30, font=FUENTES['monoespaciada'])
         self.entry_f2.grid(row=2, column=1, sticky=(tk.W, tk.E), pady=5)
         
+        # Entrada de parámetro u
+        ttk.Label(self.funciones_frame, text="u (opcional):", 
+                 background='white', font=FUENTES['normal']).grid(
+            row=3, column=0, sticky=tk.E, padx=(0, 5), pady=5)
+        
+        self.entry_params = ttk.Entry(self.funciones_frame, textvariable=self.parametros_expr,
+                                      width=30, font=FUENTES['monoespaciada'])
+        self.entry_params.grid(row=3, column=1, sticky=(tk.W, tk.E), pady=5)
+        
         self.funciones_frame.columnconfigure(1, weight=1)
         
         # Ayuda
         ayuda_text = "Variables: x, y, t | Funciones: sin(), cos(), exp(), sqrt(), abs()\n"
+        ayuda_text += "Puede usar 'u' como parámetro. Ej: u*x-y con u=0.5\n"
         ayuda_text += "Use 'sen' o 'sin' para seno, ambos son válidos"
         ttk.Label(self.funciones_frame, text=ayuda_text,
                  background='white', foreground=COLORES['texto_secundario'],
                  font=FUENTES['pequena'], wraplength=350).grid(
-            row=3, column=0, columnspan=2, pady=(10, 0), sticky=tk.W)
+            row=4, column=0, columnspan=2, pady=(10, 0), sticky=tk.W)
         
         # Botón analizar
         btn_analizar = ttk.Button(self.funciones_frame, text="Analizar Función",
                                  style='Accent.TButton',
                                  command=self.analizar_sistema)
-        btn_analizar.grid(row=4, column=0, columnspan=2, pady=(15, 0), sticky=(tk.W, tk.E))
+        btn_analizar.grid(row=5, column=0, columnspan=2, pady=(15, 0), sticky=(tk.W, tk.E))
         
         # Ejemplos rápidos
         ttk.Label(self.funciones_frame, text="Ejemplos Rápidos:",
-                 style='Title.TLabel').grid(row=5, column=0, columnspan=2, pady=(15, 5))
+                 style='Title.TLabel').grid(row=6, column=0, columnspan=2, pady=(15, 5))
         
         ejemplos = [
-            ("Lineal simple", "-x", "-2*y"),
-            ("Con términos forzados", "-x + 2", "y + cos(t)"),
-            ("No lineal", "-x + y**2", "-y + x*y"),
-            ("Oscilador forzado", "-y", "x + sin(2*t)"),
-            ("Exponencial", "-x + exp(-t)", "-y + 0.5"),
-            ("Van der Pol", "y", "(1-x**2)*y - x"),
+            ("Lineal simple", "-x", "-2*y", ""),
+            ("Hopf (u=0.5)", "u*x - y - x*(x**2 + y**2)", "x + u*y - y*(x**2 + y**2)", "0.5"),
+            ("No lineal", "-x + y**2", "-y + x*y", ""),
+            ("Van der Pol", "y", "(1-x**2)*y - x", ""),
+            ("Lotka-Volterra", "x - 0.5*x*y", "0.5*x*y - 0.5*y", ""),
+            ("Hopf (u=-0.5)", "u*x - y - x*(x**2 + y**2)", "x + u*y - y*(x**2 + y**2)", "-0.5"),
         ]
         
-        for i, (nombre, f1, f2) in enumerate(ejemplos):
+        for i, ejemplo in enumerate(ejemplos):
             row = 6 + i // 2
             col = i % 2
-            btn = ttk.Button(self.funciones_frame, text=nombre,
-                           command=lambda f1=f1, f2=f2: self._cargar_ejemplo_funcion(f1, f2))
+            if len(ejemplo) == 4:
+                nombre, f1, f2, params = ejemplo
+                btn = ttk.Button(self.funciones_frame, text=nombre,
+                               command=lambda f1=f1, f2=f2, p=params: self._cargar_ejemplo_funcion(f1, f2, p))
+            else:
+                nombre, f1, f2 = ejemplo
+                btn = ttk.Button(self.funciones_frame, text=nombre,
+                               command=lambda f1=f1, f2=f2: self._cargar_ejemplo_funcion(f1, f2, ""))
             btn.grid(row=row, column=col, pady=2, padx=2, sticky=(tk.W, tk.E))
         
         self.funciones_frame.columnconfigure(0, weight=1)
@@ -538,10 +557,11 @@ class InterfazGrafica:
         except Exception as e:
             messagebox.showerror("Error", f"Error al analizar el sistema:\n{str(e)}")
     
-    def _cargar_ejemplo_funcion(self, f1, f2):
+    def _cargar_ejemplo_funcion(self, f1, f2, params=""):
         """Carga un ejemplo de función"""
         self.f1_expr.set(f1)
         self.f2_expr.set(f2)
+        self.parametros_expr.set(params)
         self.analizar_sistema()
     
     def _crear_sistema_personalizado(self):
@@ -557,6 +577,19 @@ class InterfazGrafica:
         f1 = f1.replace('sen', 'sin')
         f2 = f2.replace('sen', 'sin')
         
+        # Parsear parámetro u
+        parametros = {}
+        params_str = self.parametros_expr.get().strip()
+        if params_str:
+            try:
+                # Solo parsear el valor numérico de u
+                parametros['u'] = float(params_str)
+            except Exception as e:
+                messagebox.showerror("Error en parámetro u",
+                    f"Error al parsear el valor de u:\n{str(e)}\n\n"
+                    f"Ingrese solo el valor numérico. Ej: 0.5")
+                return None
+        
         # Validar funciones
         try:
             test_vars = {
@@ -565,16 +598,20 @@ class InterfazGrafica:
                 'exp': np.exp, 'log': np.log, 'sqrt': np.sqrt,
                 'abs': np.abs, 'pi': np.pi, 'e': np.e
             }
+            # Agregar parámetros a las variables de prueba
+            test_vars.update(parametros)
+            
             float(eval(f1, {"__builtins__": {}}, test_vars))
             float(eval(f2, {"__builtins__": {}}, test_vars))
         except Exception as e:
             messagebox.showerror("Error en funciones", 
                 f"Error al evaluar:\n{str(e)}\n\nAsegúrese de usar la sintaxis correcta.\n"
-                f"Ejemplos: sin(x), cos(t), exp(-t)")
+                f"Ejemplos: sin(x), cos(t), exp(-t), u*x, mu*y")
             return None
         
         return SistemaDinamico2D(
-            funcion_personalizada={'f1': f1, 'f2': f2, 'es_lineal': False}
+            funcion_personalizada={'f1': f1, 'f2': f2, 'es_lineal': False},
+            parametros=parametros
         )
     
     def _crear_sistema_matriz(self):
@@ -616,14 +653,18 @@ class InterfazGrafica:
             solucion_bw = integrate_trajectory_limited(
                 self.sistema_actual, condicion_inicial, direccion=-1)
             
-            # Dibujar
+            # Dibujar con flechas direccionales
             if len(solucion_fw) > 1:
                 self.ax.plot(solucion_fw[:, 0], solucion_fw[:, 1], 
                            'b-', linewidth=2, alpha=0.8)
+                # Agregar flechas a la trayectoria hacia adelante
+                self._agregar_flechas_a_trayectoria(self.ax, solucion_fw, 'b')
             
             if len(solucion_bw) > 1:
                 self.ax.plot(solucion_bw[:, 0], solucion_bw[:, 1], 
                            'b-', linewidth=2, alpha=0.8)
+                # Agregar flechas a la trayectoria hacia atrás
+                self._agregar_flechas_a_trayectoria(self.ax, solucion_bw, 'b')
             
             # Marcar punto inicial
             self.ax.plot(event.xdata, event.ydata, 'ro', markersize=8,
@@ -632,6 +673,28 @@ class InterfazGrafica:
             self.canvas.draw()
         except Exception as e:
             print(f"Error al crear trayectoria: {e}")
+    
+    def _agregar_flechas_a_trayectoria(self, ax, trayectoria, color):
+        """Agrega flechas direccionales a una trayectoria"""
+        if len(trayectoria) < 10:
+            return
+        
+        # Agregar 3-5 flechas distribuidas uniformemente
+        num_flechas = min(5, len(trayectoria) // 20)
+        if num_flechas < 1:
+            num_flechas = 1
+        
+        indices = np.linspace(10, len(trayectoria)-10, num_flechas, dtype=int)
+        
+        for idx in indices:
+            if idx < len(trayectoria) - 1:
+                x_start, y_start = trayectoria[idx]
+                x_end, y_end = trayectoria[idx + 1]
+                
+                # Dibujar flecha
+                ax.annotate('', xy=(x_end, y_end), xytext=(x_start, y_start),
+                           arrowprops=dict(arrowstyle='->', color=color, 
+                                         lw=2, alpha=0.8))
     
     def limpiar_trayectorias(self):
         """Limpia trayectorias y redibuja"""

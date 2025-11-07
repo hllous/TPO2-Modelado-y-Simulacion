@@ -15,7 +15,7 @@ class SistemaDinamico2D:
     Soporta: sistemas lineales, lineales no homogéneos y personalizados (no lineales)
     """
     
-    def __init__(self, matriz=None, termino_forzado=None, funcion_personalizada=None):
+    def __init__(self, matriz=None, termino_forzado=None, funcion_personalizada=None, parametros=None):
         """
         Inicializa el sistema dinámico
         
@@ -23,8 +23,10 @@ class SistemaDinamico2D:
         - matriz: matriz 2x2 para sistemas lineales (dx/dt = Ax)
         - termino_forzado: dict con {tipo, coef1, coef2, param}
         - funcion_personalizada: dict con {'f1': expr, 'f2': expr, 'es_lineal': bool}
+        - parametros: dict con valores de parámetros adicionales (ej: {'u': 0.5, 'mu': 1.0})
         """
         self.funcion_personalizada = funcion_personalizada
+        self.parametros = parametros or {}
         
         if funcion_personalizada:
             self.A = None
@@ -65,6 +67,12 @@ class SistemaDinamico2D:
                 'pi': sp.pi, 'e': sp.E
             }
             
+            # Agregar símbolos para los parámetros
+            self.param_symbols = {}
+            for param_name in self.parametros.keys():
+                self.param_symbols[param_name] = sp.Symbol(param_name, real=True)
+                local_dict[param_name] = self.param_symbols[param_name]
+            
             self.f1_sym = sp.sympify(f1_str, locals=local_dict)
             self.f2_sym = sp.sympify(f2_str, locals=local_dict)
             
@@ -99,8 +107,16 @@ class SistemaDinamico2D:
             return None
         
         try:
+            # Crear lista de sustituciones con coordenadas
+            subs_list = [(self.x_sym, x), (self.y_sym, y)]
+            
+            # Agregar sustituciones para los parámetros
+            for param_name, param_value in self.parametros.items():
+                if param_name in self.param_symbols:
+                    subs_list.append((self.param_symbols[param_name], param_value))
+            
             # Evaluar el Jacobiano simbólico en el punto
-            jacobiano_evaluado = self.jacobiano_simbolico.subs([(self.x_sym, x), (self.y_sym, y)])
+            jacobiano_evaluado = self.jacobiano_simbolico.subs(subs_list)
             
             # Convertir a numpy array
             J = np.array(jacobiano_evaluado, dtype=float)
@@ -152,6 +168,9 @@ class SistemaDinamico2D:
                 'exp': np.exp, 'log': np.log, 'sqrt': np.sqrt,
                 'abs': np.abs, 'pi': np.pi, 'e': np.e
             }
+            
+            # Agregar parámetros a las variables disponibles
+            variables.update(self.parametros)
             
             dx1dt = float(eval(f1_expr, {"__builtins__": {}}, variables))
             dx2dt = float(eval(f2_expr, {"__builtins__": {}}, variables))
