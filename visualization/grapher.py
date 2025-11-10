@@ -29,7 +29,7 @@ class Grapher:
         if ylim:
             self.ylim = ylim
     
-    def crear_grafica(self, ax, xlim=None, ylim=None, n_puntos=20):
+    def crear_grafica(self, ax, xlim=None, ylim=None, n_puntos=20, mostrar_nuclinas=False):
         """Crea gráfica completa con visualización del sistema"""
         ax.clear()
         
@@ -56,6 +56,10 @@ class Grapher:
         n_puntos_extended = int(n_puntos * 2.5)  # Más densidad en área extendida
         self._dibujar_campo_direcciones(ax, xlim_extended, ylim_extended, n_puntos_extended)
         
+        # Dibujar nuclinas si está activado
+        if mostrar_nuclinas:
+            self._dibujar_nuclinas(ax, xlim, ylim)
+        
         self._dibujar_autovectores(ax)
         self._marcar_puntos_equilibrio(ax, xlim, ylim)
         self._configurar_ejes(ax, xlim, ylim)
@@ -71,6 +75,35 @@ class Grapher:
         U_norm, V_norm, M = normalizar_vectores(U, V)
         
         ax.quiver(X, Y, U_norm, V_norm, M, cmap='viridis', alpha=0.6)
+    
+    def _dibujar_nuclinas(self, ax, xlim, ylim, n_puntos=100):
+        """Dibuja las nuclinas (isolíneas donde dx/dt=0 y dy/dt=0)"""
+        x = np.linspace(xlim[0], xlim[1], n_puntos)
+        y = np.linspace(ylim[0], ylim[1], n_puntos)
+        X, Y = np.meshgrid(x, y)
+        
+        # Calcular campo vectorial
+        U, V = calcular_campo_vectorial(self.sistema, X, Y)
+        
+        # Nuclina vertical: donde dx/dt = 0 (U = 0)
+        try:
+            contour_u = ax.contour(X, Y, U, levels=[0], colors='red', 
+                                   linestyles='--', linewidths=2, alpha=0.7)
+            # Etiqueta para la primera nuclina
+            if len(contour_u.collections) > 0:
+                ax.plot([], [], 'r--', linewidth=2, label='dx/dt = 0', alpha=0.7)
+        except:
+            pass  # Si no se puede dibujar, ignorar
+        
+        # Nuclina horizontal: donde dy/dt = 0 (V = 0)
+        try:
+            contour_v = ax.contour(X, Y, V, levels=[0], colors='blue', 
+                                   linestyles='--', linewidths=2, alpha=0.7)
+            # Etiqueta para la segunda nuclina
+            if len(contour_v.collections) > 0:
+                ax.plot([], [], 'b--', linewidth=2, label='dy/dt = 0', alpha=0.7)
+        except:
+            pass  # Si no se puede dibujar, ignorar
     
     def _dibujar_autovectores(self, ax):
         """Dibuja autovectores si aplican"""

@@ -114,7 +114,7 @@ def encontrar_limites_automaticos(sistema, rango_busqueda=(-10, 10)):
     return xlim, ylim
 
 
-def agregar_flechas_trayectoria(ax, trayectoria, color='b', num_flechas=5):
+def agregar_flechas_trayectoria(ax, trayectoria, color='b', num_flechas=5, direccion=1):
     """
     Agrega flechas direccionales a una trayectoria
     
@@ -123,6 +123,7 @@ def agregar_flechas_trayectoria(ax, trayectoria, color='b', num_flechas=5):
         trayectoria: array de puntos
         color: color de las flechas
         num_flechas: cantidad de flechas
+        direccion: 1 para adelante, -1 para atrás (invierte las flechas)
     """
     if len(trayectoria) < 10:
         return
@@ -135,8 +136,14 @@ def agregar_flechas_trayectoria(ax, trayectoria, color='b', num_flechas=5):
     
     for idx in indices:
         if idx < len(trayectoria) - 1:
-            x_start, y_start = trayectoria[idx]
-            x_end, y_end = trayectoria[idx + 1]
+            # Para direccion=1 (adelante): flecha de idx -> idx+1
+            # Para direccion=-1 (atrás): flecha de idx+1 -> idx (invertida)
+            if direccion == 1:
+                x_start, y_start = trayectoria[idx]
+                x_end, y_end = trayectoria[idx + 1]
+            else:  # direccion == -1
+                x_start, y_start = trayectoria[idx + 1]
+                x_end, y_end = trayectoria[idx]
             
             ax.annotate('', xy=(x_end, y_end), xytext=(x_start, y_start),
                        arrowprops=dict(arrowstyle='->', color=color, lw=2, alpha=0.8))

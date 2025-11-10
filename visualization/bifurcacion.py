@@ -144,16 +144,56 @@ class VisualizadorBifurcacion:
             
             eq_data = self.analizador.obtener_equilibrios_con_estabilidad(r_val)
             
+            # Marcar TODOS los puntos de equilibrio encontrados
+            estables_mostrados = False
+            inestables_mostrados = False
+            neutrales_mostrados = False
+            
             for eq in eq_data:
                 x_eq = eq['x']
                 if x_range[0] <= x_eq <= x_range[1]:
+                    mult = eq.get('multiplicidad', 1)
+                    
+                    # Tamaño mayor para puntos con multiplicidad > 1
+                    markersize = 10 if mult == 1 else 14
+                    
                     if eq['estabilidad'] == 'estable':
-                        ax.plot(x_eq, 0, 'bo', markersize=10, 
-                               markerfacecolor='blue', label='Estable' if i == 0 else '')
+                        label = 'Estable' if not estables_mostrados else ''
+                        ax.plot(x_eq, 0, 'bo', markersize=markersize, 
+                               markerfacecolor='blue', label=label, zorder=5)
+                        estables_mostrados = True
+                        
+                        # Marcar multiplicidad si es mayor que 1
+                        if mult > 1:
+                            ax.plot(x_eq, 0, 'bo', markersize=markersize+4, 
+                                   markerfacecolor='none', markeredgecolor='blue',
+                                   markeredgewidth=2, zorder=4)
+                                   
                     elif eq['estabilidad'] == 'inestable':
-                        ax.plot(x_eq, 0, 'ro', markersize=10, 
+                        label = 'Inestable' if not inestables_mostrados else ''
+                        ax.plot(x_eq, 0, 'ro', markersize=markersize, 
                                markerfacecolor='white', markeredgewidth=2,
-                               markeredgecolor='red', label='Inestable' if i == 0 else '')
+                               markeredgecolor='red', label=label, zorder=5)
+                        inestables_mostrados = True
+                        
+                        # Marcar multiplicidad si es mayor que 1
+                        if mult > 1:
+                            ax.plot(x_eq, 0, 'ro', markersize=markersize+4, 
+                                   markerfacecolor='none', markeredgecolor='red',
+                                   markeredgewidth=3, zorder=4)
+                                   
+                    elif eq['estabilidad'] == 'neutral':
+                        label = 'Neutral' if not neutrales_mostrados else ''
+                        ax.plot(x_eq, 0, 'ko', markersize=markersize, 
+                               markerfacecolor='yellow', markeredgewidth=2,
+                               markeredgecolor='black', label=label, zorder=5)
+                        neutrales_mostrados = True
+                        
+                        # Marcar multiplicidad si es mayor que 1
+                        if mult > 1:
+                            ax.plot(x_eq, 0, 'ko', markersize=markersize+4, 
+                                   markerfacecolor='none', markeredgecolor='black',
+                                   markeredgewidth=3, zorder=4)
             
             arrow_x = np.linspace(x_range[0], x_range[1], 15)
             for x_pos in arrow_x:

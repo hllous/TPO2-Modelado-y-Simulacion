@@ -37,15 +37,27 @@ class AnalizadorBifurcacion:
             r_value: Valor específico de r, o None para solución simbólica
             
         Returns:
-            Lista de puntos de equilibrio
+            Lista de puntos de equilibrio (incluyendo multiplicidades)
         """
         if r_value is not None:
             r_rational = sp.Rational(r_value).limit_denominator(1000)
             eq = self.f.subs(self.r, r_rational)
         else:
             eq = self.f
+        
+        # Usar roots() para obtener raíces con multiplicidades
+        try:
+            raices_dict = sp.roots(eq, self.x)
+            # Expandir raíces según su multiplicidad
+            equilibria = []
+            for raiz, multiplicidad in raices_dict.items():
+                # Agregar cada raíz según su multiplicidad
+                for _ in range(multiplicidad):
+                    equilibria.append(raiz)
+        except:
+            # Si roots() falla, usar solve() como respaldo
+            equilibria = sp.solve(eq, self.x, rational=False, simplify=False)
             
-        equilibria = sp.solve(eq, self.x, rational=False, simplify=False)
         return equilibria
     
     def estabilidad(self, x_eq: float, r_value: float) -> str:
@@ -76,20 +88,59 @@ class AnalizadorBifurcacion:
             r_value: Valor del parámetro r
             
         Returns:
-            Lista de diccionarios con 'x' y 'estabilidad'
+            Lista de diccionarios con 'x', 'estabilidad' y 'multiplicidad'
         """
-        equilibria = self.encontrar_equilibrios(r_value)
+        # Obtener raíces con multiplicidades usando roots()
+        r_rational = sp.Rational(r_value).limit_denominator(1000)
+        eq = self.f.subs(self.r, r_rational)
+        
         results = []
         
-        for eq in equilibria:
-            try:
-                x_val = complex(eq)
-                if abs(x_val.imag) < 1e-10:
-                    x_float = float(x_val.real)
-                    estab = self.estabilidad(x_float, r_value)
-                    results.append({'x': x_float, 'estabilidad': estab})
-            except (TypeError, ValueError):
-                pass  # Ignorar equilibrios complejos o no convertibles
+        try:
+            raices_dict = sp.roots(eq, self.x)
+            
+            for raiz, multiplicidad in raices_dict.items():
+                try:
+                    x_val = complex(raiz)
+                    if abs(x_val.imag) < 1e-10:
+                        x_float = float(x_val.real)
+                        estab = self.estabilidad(x_float, r_value)
+                        
+                        # Agregar cada punto una sola vez con su multiplicidad
+                        results.append({
+                            'x': x_float, 
+                            'estabilidad': estab,
+                            'multiplicidad': multiplicidad
+                        })
+                except (TypeError, ValueError):
+                    pass
+        except:
+            # Si roots() falla, usar el método anterior
+            equilibria = self.encontrar_equilibrios(r_value)
+            puntos_procesados = {}
+            
+            for eq in equilibria:
+                try:
+                    x_val = complex(eq)
+                    if abs(x_val.imag) < 1e-10:
+                        x_float = float(x_val.real)
+                        estab = self.estabilidad(x_float, r_value)
+                        
+                        es_duplicado = False
+                        for x_prev, estab_prev in puntos_procesados.items():
+                            if abs(x_float - x_prev) < 1e-8 and estab == estab_prev:
+                                es_duplicado = True
+                                break
+                        
+                        if not es_duplicado:
+                            results.append({
+                                'x': x_float, 
+                                'estabilidad': estab,
+                                'multiplicidad': 1
+                            })
+                            puntos_procesados[x_float] = estab
+                except (TypeError, ValueError):
+                    pass
                 
         return results
     

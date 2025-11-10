@@ -84,6 +84,9 @@ class InterfazGrafica:
         # Variables de parámetros personalizados
         self.parametros_expr = tk.StringVar(value="")  # Solo el valor de 'u'
         
+        # Variables de visualización
+        self.mostrar_nuclinas = tk.BooleanVar(value=False)
+        
         # Sistema actual
         self.sistema_actual = None
     
@@ -479,6 +482,15 @@ class InterfazGrafica:
                               command=self._reset_limites, width=6)
         btn_reset.grid(row=0, column=5, padx=5, rowspan=2)
         
+        # Checkbox para mostrar nuclinas
+        check_nuclinas = ttk.Checkbutton(size_frame, text="Mostrar Nuclinas",
+                                         variable=self.mostrar_nuclinas,
+                                         command=self.toggle_nuclinas)
+        check_nuclinas.grid(row=0, column=6, padx=5, columnspan=2, sticky=tk.W)
+        
+        # Tooltip explicativo
+        ToolTip(check_nuclinas, "Muestra las isolíneas donde dx/dt=0 (vertical) y dy/dt=0 (horizontal)")
+        
         # Gráfica de matplotlib
         self.fig = Figure(figsize=(8, 7), dpi=100)
         self.ax = self.fig.add_subplot(111)
@@ -525,6 +537,11 @@ class InterfazGrafica:
         else:
             self.forzado_controls.grid_remove()
             self.analizar_sistema()
+    
+    def toggle_nuclinas(self):
+        """Actualiza la visualización al cambiar el estado de las nuclinas"""
+        if self.sistema_actual:
+            self._redibujar_sistema()
     
     def _actualizar_forzado(self):
         """Actualiza parámetro y fórmula sin analizar"""
@@ -606,11 +623,23 @@ class InterfazGrafica:
                 self.ylim_max.set(round(ylim_auto[1], 2))
                 
                 grapher = Grapher(sistema)
-                grapher.crear_grafica(self.ax, xlim=xlim_auto, ylim=ylim_auto)
+                grapher.crear_grafica(self.ax, xlim=xlim_auto, ylim=ylim_auto, 
+                                     mostrar_nuclinas=self.mostrar_nuclinas.get())
                 self.canvas.draw()
         
         except Exception as e:
             messagebox.showerror("Error", f"Error al analizar el sistema:\n{str(e)}")
+    
+    def _redibujar_sistema(self):
+        """Redibuja el sistema con los límites actuales"""
+        if self.sistema_actual:
+            xlim = (self.xlim_min.get(), self.xlim_max.get())
+            ylim = (self.ylim_min.get(), self.ylim_max.get())
+            
+            grapher = Grapher(self.sistema_actual)
+            grapher.crear_grafica(self.ax, xlim=xlim, ylim=ylim,
+                                 mostrar_nuclinas=self.mostrar_nuclinas.get())
+            self.canvas.draw()
     
     def _cargar_ejemplo_funcion(self, f1, f2, params=""):
         """Carga un ejemplo de función"""
@@ -700,13 +729,13 @@ class InterfazGrafica:
                 self.ax.plot(solucion_fw[:, 0], solucion_fw[:, 1], 
                            'b-', linewidth=2, alpha=0.8)
                 # Agregar flechas a la trayectoria hacia adelante
-                self._agregar_flechas_a_trayectoria(self.ax, solucion_fw, 'b')
+                self._agregar_flechas_a_trayectoria(self.ax, solucion_fw, 'b', direccion=1)
             
             if len(solucion_bw) > 1:
                 self.ax.plot(solucion_bw[:, 0], solucion_bw[:, 1], 
                            'b-', linewidth=2, alpha=0.8)
-                # Agregar flechas a la trayectoria hacia atrás
-                self._agregar_flechas_a_trayectoria(self.ax, solucion_bw, 'b')
+                # Agregar flechas a la trayectoria hacia atrás (invertir dirección)
+                self._agregar_flechas_a_trayectoria(self.ax, solucion_bw, 'b', direccion=-1)
             
             # Marcar punto inicial
             self.ax.plot(event.xdata, event.ydata, 'ro', markersize=8,
@@ -716,15 +745,15 @@ class InterfazGrafica:
         except Exception as e:
             print(f"Error al crear trayectoria: {e}")
     
-    def _agregar_flechas_a_trayectoria(self, ax, trayectoria, color):
+    def _agregar_flechas_a_trayectoria(self, ax, trayectoria, color, direccion=1):
         """Agrega flechas direccionales a una trayectoria"""
-        agregar_flechas_trayectoria(ax, trayectoria, color, num_flechas=5)
+        agregar_flechas_trayectoria(ax, trayectoria, color, num_flechas=5, direccion=direccion)
     
     def limpiar_trayectorias(self):
         """Limpia trayectorias y redibuja"""
         if self.sistema_actual:
             grapher = Grapher(self.sistema_actual)
-            grapher.crear_grafica(self.ax)
+            grapher.crear_grafica(self.ax, mostrar_nuclinas=self.mostrar_nuclinas.get())
             self.canvas.draw()
     
     def actualizar_limites(self):
@@ -743,7 +772,8 @@ class InterfazGrafica:
             if self.sistema_actual:
                 grapher = Grapher(self.sistema_actual)
                 grapher.establecer_limites(xlim, ylim)
-                grapher.crear_grafica(self.ax, xlim, ylim)
+                grapher.crear_grafica(self.ax, xlim, ylim, 
+                                     mostrar_nuclinas=self.mostrar_nuclinas.get())
                 self.canvas.draw()
         
         except ValueError:

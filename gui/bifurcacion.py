@@ -263,9 +263,14 @@ class InterfazBifurcacion:
                 
                 if eq_data:
                     for i, eq in enumerate(eq_data, 1):
-                        status = "ESTABLE" if eq['estabilidad'] == 'estable' else "INESTABLE"
-                        self.resultados_text.insert(tk.END, 
-                                                   f"  x*_{i} = {eq['x']:.4f} ({status})\n")
+                        status = "ESTABLE" if eq['estabilidad'] == 'estable' else "INESTABLE" if eq['estabilidad'] == 'inestable' else "NEUTRAL"
+                        mult = eq.get('multiplicidad', 1)
+                        if mult > 1:
+                            self.resultados_text.insert(tk.END, 
+                                                       f"  x*_{i} = {eq['x']:.4f} ({status}, mult={mult})\n")
+                        else:
+                            self.resultados_text.insert(tk.END, 
+                                                       f"  x*_{i} = {eq['x']:.4f} ({status})\n")
                 else:
                     self.resultados_text.insert(tk.END, "  No hay puntos de equilibrio reales\n")
                 
