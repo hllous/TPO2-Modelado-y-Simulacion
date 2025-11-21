@@ -12,6 +12,7 @@ from gui.sistema_1d import InterfazSistema1D
 from gui.hamilton import InterfazHamilton
 from gui.lotka_volterra import InterfazLotkaVolterra
 from gui.modelo_infeccion import InterfazModeloInfeccion
+from gui.soluciones_parametricas import InterfazSolucionesParametricas
 
 
 class InterfazPrincipal:
@@ -48,6 +49,11 @@ class InterfazPrincipal:
             'titulo': '🦅 Lotka-Volterra',
             'clase': InterfazLotkaVolterra,
             'descripcion': 'Análisis del sistema depredador-presa\ncon oscilaciones periódicas y análisis detallado de fases.'
+        },
+        'parametricas': {
+            'titulo': '🧮 Soluciones Paramétricas',
+            'clase': InterfazSolucionesParametricas,
+            'descripcion': 'Calcula las soluciones generales x(t) e y(t) de sistemas lineales\nhomogéneos 2D en función de las condiciones iniciales.'
         }
     }
     

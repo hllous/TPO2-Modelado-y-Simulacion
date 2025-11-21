@@ -499,3 +499,180 @@ class SistemaDinamico2D:
         
         else:
             raise ValueError("direccion debe ser 'adelante', 'atras', o 'ambas'")
+    
+    def obtener_soluciones_parametricas(self):
+        """
+        Calcula las soluciones paramétricas x(t) e y(t) para sistemas lineales homogéneos
+        
+        Retorna:
+        - dict con:
+          - 'solucion_general': {'x': expresión, 'y': expresión}
+          - 'autovalores': [λ1, λ2]
+          - 'autovectores': [[v1_x, v1_y], [v2_x, v2_y]]
+          - 'tipo': descripción del tipo de solución
+          - 'latex': {'x': latex de x(t), 'y': latex de y(t)}
+          - 'es_valido': bool
+        """
+        if self.es_no_lineal:
+            return {
+                'es_valido': False,
+                'mensaje': 'Las soluciones paramétricas solo están disponibles para sistemas lineales homogéneos'
+            }
+        
+        if self.termino_forzado and self.termino_forzado.get('tipo') != 'ninguno':
+            return {
+                'es_valido': False,
+                'mensaje': 'Las soluciones paramétricas mostradas son solo para la parte homogénea del sistema'
+            }
+        
+        try:
+            # Si se ingresó por funciones, extraer la matriz de coeficientes
+            if self.funcion_personalizada and self.autovalores is None:
+                # Evaluar el Jacobiano en (0, 0) para sistemas lineales homogéneos
+                # Para sistemas lineales: f(x,y) = ax + by, el Jacobiano es constante
+                if self.jacobiano_simbolico is not None:
+                    J_en_origen = self.jacobiano_simbolico.subs([(self.x_sym, 0), (self.y_sym, 0)])
+                    
+                    # Convertir a matriz numpy
+                    A = np.array(J_en_origen.tolist(), dtype=float)
+                    
+                    # Calcular autovalores y autovectores
+                    autovalores, autovectores = np.linalg.eig(A)
+                else:
+                    return {
+                        'es_valido': False,
+                        'mensaje': 'No se pudo calcular la matriz del sistema'
+                    }
+            else:
+                autovalores = self.autovalores
+                autovectores = self.autovectores
+            
+            # Función auxiliar para convertir números a formas simbólicas exactas
+            def numero_a_simbolico(val, tolerancia=1e-3):
+                """Convierte un número a su forma simbólica cuando sea posible"""
+                if isinstance(val, complex):
+                    # Convertir parte real e imaginaria por separado
+                    re_simb = numero_a_simbolico(val.real, tolerancia)
+                    im_simb = numero_a_simbolico(val.imag, tolerancia)
+                    if im_simb == 0:
+                        return re_simb
+                    return re_simb + sp.I * im_simb
+                
+                # Casos especiales comunes
+                if abs(val) < 1e-10:
+                    return sp.Integer(0)
+                elif abs(val - 1) < 1e-10:
+                    return sp.Integer(1)
+                elif abs(val + 1) < 1e-10:
+                    return sp.Integer(-1)
+                elif abs(val - 1/sp.sqrt(2)) < tolerancia:  # ≈ 0.7071
+                    return 1/sp.sqrt(2)
+                elif abs(val + 1/sp.sqrt(2)) < tolerancia:  # ≈ -0.7071
+                    return -1/sp.sqrt(2)
+                elif abs(val - sp.sqrt(2)) < tolerancia:  # ≈ 1.4142
+                    return sp.sqrt(2)
+                elif abs(val + sp.sqrt(2)) < tolerancia:  # ≈ -1.4142
+                    return -sp.sqrt(2)
+                elif abs(val - 1/2) < 1e-10:
+                    return sp.Rational(1, 2)
+                elif abs(val + 1/2) < 1e-10:
+                    return sp.Rational(-1, 2)
+                elif abs(val - sp.sqrt(3)) < tolerancia:  # ≈ 1.7321
+                    return sp.sqrt(3)
+                elif abs(val + sp.sqrt(3)) < tolerancia:  # ≈ -1.7321
+                    return -sp.sqrt(3)
+                # Si no hay conversión especial, redondear a 4 decimales
+                return sp.Float(round(val, 4), 4)
+            
+            # Variables simbólicas
+            t = sp.Symbol('t', real=True, positive=True)
+            c1, c2 = sp.symbols('c1 c2', real=True)
+            
+            # Convertir autovalores y autovectores a formas simbólicas
+            λ1 = numero_a_simbolico(autovalores[0])
+            λ2 = numero_a_simbolico(autovalores[1])
+            
+            v1 = np.array([numero_a_simbolico(autovectores[0, 0]), 
+                          numero_a_simbolico(autovectores[1, 0])])
+            v2 = np.array([numero_a_simbolico(autovectores[0, 1]), 
+                          numero_a_simbolico(autovectores[1, 1])])
+            
+            # Determinar el tipo de solución según los autovalores
+            # Verificar si tienen parte imaginaria no nula
+            def tiene_parte_imaginaria(λ):
+                """Verifica si un autovalor tiene parte imaginaria no nula"""
+                if isinstance(λ, (sp.Add, sp.Mul)) and sp.I in λ.free_symbols:
+                    return True
+                # Verificar parte imaginaria de números complejos
+                im_part = sp.im(λ)
+                return abs(complex(im_part)) > 1e-10
+            
+            es_complejo_1 = tiene_parte_imaginaria(λ1)
+            es_complejo_2 = tiene_parte_imaginaria(λ2)
+            
+            if not (es_complejo_1 or es_complejo_2):
+                # Autovalores reales
+                if abs(complex(λ1) - complex(λ2)) < 1e-10:  # Autovalor repetido
+                    tipo = 'Autovalor repetido'
+                    λ = λ1
+                    x_t = (c1 * v1[0] + c2 * (v1[0] * t + v2[0])) * sp.exp(λ * t)
+                    y_t = (c1 * v1[1] + c2 * (v1[1] * t + v2[1])) * sp.exp(λ * t)
+                else:  # Autovalores reales distintos
+                    tipo = 'Autovalores reales distintos'
+                    x_t = c1 * v1[0] * sp.exp(λ1 * t) + c2 * v2[0] * sp.exp(λ2 * t)
+                    y_t = c1 * v1[1] * sp.exp(λ1 * t) + c2 * v2[1] * sp.exp(λ2 * t)
+            else:  # Autovalores complejos conjugados
+                tipo = 'Autovalores complejos conjugados'
+                
+                # Extraer parte real e imaginaria de λ1
+                if isinstance(λ1, (sp.Add, sp.Mul)):
+                    α = sp.re(λ1)
+                    β = sp.im(λ1)
+                else:
+                    λ1_complex = complex(λ1)
+                    α = numero_a_simbolico(λ1_complex.real)
+                    β = numero_a_simbolico(λ1_complex.imag)
+                
+                # Extraer parte real e imaginaria del autovector
+                u = np.array([sp.re(v1[0]), sp.re(v1[1])])
+                w = np.array([sp.im(v1[0]), sp.im(v1[1])])
+                
+                # Solución: e^(αt)[c1*(u*cos(βt) - w*sin(βt)) + c2*(u*sin(βt) + w*cos(βt))]
+                x_t = sp.exp(α * t) * (
+                    c1 * (u[0] * sp.cos(β * t) - w[0] * sp.sin(β * t)) +
+                    c2 * (u[0] * sp.sin(β * t) + w[0] * sp.cos(β * t))
+                )
+                y_t = sp.exp(α * t) * (
+                    c1 * (u[1] * sp.cos(β * t) - w[1] * sp.sin(β * t)) +
+                    c2 * (u[1] * sp.sin(β * t) + w[1] * sp.cos(β * t))
+                )
+            
+            # Simplificar expresiones
+            x_t_redondeado = sp.simplify(x_t)
+            y_t_redondeado = sp.simplify(y_t)
+            
+            return {
+                'es_valido': True,
+                'solucion_general': {
+                    'x': str(x_t_redondeado),
+                    'y': str(y_t_redondeado)
+                },
+                'autovalores': [complex(λ1), complex(λ2)],
+                'autovectores': [[complex(v1[0]), complex(v1[1])], 
+                               [complex(v2[0]), complex(v2[1])]],
+                'tipo': tipo,
+                'latex': {
+                    'x': sp.latex(x_t_redondeado),
+                    'y': sp.latex(y_t_redondeado)
+                },
+                'sympy_expr': {
+                    'x': x_t_redondeado,
+                    'y': y_t_redondeado
+                }
+            }
+        
+        except Exception as e:
+            return {
+                'es_valido': False,
+                'mensaje': f'Error al calcular soluciones paramétricas: {str(e)}'
+            }
