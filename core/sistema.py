@@ -350,30 +350,68 @@ class SistemaDinamico2D:
     
     @staticmethod
     def _generar_puntos_prueba(xlim, ylim):
-        """Genera puntos iniciales para búsqueda de equilibrios"""
+        """
+        Genera puntos iniciales para búsqueda de equilibrios
+        Estrategia mejorada: malla adaptativa + puntos en bordes + origen
+        """
         import numpy as np
-        puntos = [
-            (0, 0),
-            # Puntos en ejes
-            (1, 0), (-1, 0), (0, 1), (0, -1),
-            (2, 0), (-2, 0), (0, 2), (0, -2),
-            (3, 0), (-3, 0), (0, 3), (0, -3),
-            (4, 0), (-4, 0), (0, 4), (0, -4),
-            # Puntos diagonales
-            (1, 1), (-1, -1), (1, -1), (-1, 1),
-            (2, 2), (-2, -2), (2, -2), (-2, 2),
-            (0.5, 0.5), (-0.5, -0.5), (1.5, 1.5), (-1.5, -1.5),
-            # Combinaciones específicas
-            (2, 0.5), (2, -0.5), (3, 0.5), (3, -0.5),
-            (0.5, 2), (-0.5, 2), (0.5, 3), (-0.5, 3),
-        ]
+        puntos = []
         
-        # Agregar puntos en una malla dentro de los límites
-        x_range = np.linspace(xlim[0], xlim[1], 8)
-        y_range = np.linspace(ylim[0], ylim[1], 8)
+        # Siempre incluir el origen (importante para sistemas lineales)
+        puntos.append((0, 0))
+        
+        # Agregar esquinas del dominio
+        puntos.extend([
+            (xlim[0], ylim[0]),
+            (xlim[0], ylim[1]),
+            (xlim[1], ylim[0]),
+            (xlim[1], ylim[1])
+        ])
+        
+        # Agregar puntos en los bordes (ayuda a encontrar equilibrios cerca de límites)
+        n_bordes = 5
+        for i in range(n_bordes):
+            t = i / (n_bordes - 1)
+            # Borde superior e inferior
+            puntos.append((xlim[0] + t * (xlim[1] - xlim[0]), ylim[0]))
+            puntos.append((xlim[0] + t * (xlim[1] - xlim[0]), ylim[1]))
+            # Borde izquierdo y derecho
+            puntos.append((xlim[0], ylim[0] + t * (ylim[1] - ylim[0])))
+            puntos.append((xlim[1], ylim[0] + t * (ylim[1] - ylim[0])))
+        
+        # Malla densa adaptativa (aumentada de 8x8 a 12x12 = 144 puntos)
+        n_grid = 12  # Densidad aumentada
+        x_range = np.linspace(xlim[0], xlim[1], n_grid)
+        y_range = np.linspace(ylim[0], ylim[1], n_grid)
         for xi in x_range:
             for yi in y_range:
                 puntos.append((float(xi), float(yi)))
+        
+        # Agregar puntos en ejes si (0,0) está dentro del dominio
+        if xlim[0] <= 0 <= xlim[1]:
+            # Puntos en eje X
+            for x_val in np.linspace(xlim[0], xlim[1], 8):
+                if abs(x_val) > 0.01:  # Evitar duplicar origen
+                    puntos.append((float(x_val), 0))
+        
+        if ylim[0] <= 0 <= ylim[1]:
+            # Puntos en eje Y
+            for y_val in np.linspace(ylim[0], ylim[1], 8):
+                if abs(y_val) > 0.01:  # Evitar duplicar origen
+                    puntos.append((0, float(y_val)))
+        
+        # Agregar puntos en diagonales
+        n_diag = 6
+        for i in range(n_diag):
+            t = i / (n_diag - 1)
+            # Diagonal principal
+            x_diag = xlim[0] + t * (xlim[1] - xlim[0])
+            y_diag = ylim[0] + t * (ylim[1] - ylim[0])
+            puntos.append((x_diag, y_diag))
+            
+            # Diagonal secundaria
+            y_diag_inv = ylim[1] - t * (ylim[1] - ylim[0])
+            puntos.append((x_diag, y_diag_inv))
         
         return puntos
     
@@ -384,3 +422,80 @@ class SistemaDinamico2D:
             if abs(sol[0] - px) < tolerancia and abs(sol[1] - py) < tolerancia:
                 return False
         return True
+    
+    def resolver_temporal(self, condiciones_iniciales, t_max=10, num_puntos=1000):
+        """
+        Resuelve el sistema con condiciones iniciales y devuelve la evolución temporal
+        
+        Parámetros:
+        - condiciones_iniciales: [x0, y0] valores iniciales
+        - t_max: tiempo máximo de simulación
+        - num_puntos: número de puntos de discretización
+        
+        Retorna:
+        - t: array de tiempos
+        - solucion: array [x(t), y(t)] con shape (num_puntos, 2)
+        """
+        t = np.linspace(0, t_max, num_puntos)
+        solucion = odeint(self.sistema_ecuaciones, condiciones_iniciales, t)
+        return t, solucion
+    
+    def evaluar_en_tiempo(self, condiciones_iniciales, t_eval):
+        """
+        Evalúa la solución en un tiempo específico
+        
+        Parámetros:
+        - condiciones_iniciales: [x0, y0]
+        - t_eval: tiempo específico a evaluar
+        
+        Retorna:
+        - [x(t_eval), y(t_eval)]
+        """
+        if t_eval < 0:
+            raise ValueError("El tiempo debe ser no negativo")
+        
+        # Resolver hasta ese tiempo
+        t = np.linspace(0, t_eval, max(int(t_eval * 10), 100))
+        solucion = odeint(self.sistema_ecuaciones, condiciones_iniciales, t)
+        return solucion[-1]
+    
+    def calcular_trayectoria_completa(self, condiciones_iniciales, t_max=10, 
+                                     direccion='ambas', num_puntos=1000):
+        """
+        Calcula trayectoria completa (hacia adelante y/o atrás en el tiempo)
+        
+        Parámetros:
+        - condiciones_iniciales: [x0, y0]
+        - t_max: tiempo máximo
+        - direccion: 'adelante', 'atras', o 'ambas'
+        - num_puntos: puntos de discretización
+        
+        Retorna:
+        - t: array de tiempos
+        - solucion: array de soluciones
+        """
+        if direccion == 'adelante':
+            return self.resolver_temporal(condiciones_iniciales, t_max, num_puntos)
+        
+        elif direccion == 'atras':
+            t = np.linspace(0, -t_max, num_puntos)
+            solucion = odeint(self.sistema_ecuaciones, condiciones_iniciales, t)
+            return t, solucion
+        
+        elif direccion == 'ambas':
+            # Hacia adelante
+            t_fw = np.linspace(0, t_max, num_puntos // 2)
+            sol_fw = odeint(self.sistema_ecuaciones, condiciones_iniciales, t_fw)
+            
+            # Hacia atrás
+            t_bw = np.linspace(0, -t_max, num_puntos // 2)
+            sol_bw = odeint(self.sistema_ecuaciones, condiciones_iniciales, t_bw)
+            
+            # Combinar (invertir la parte hacia atrás)
+            t_total = np.concatenate([t_bw[::-1], t_fw[1:]])
+            sol_total = np.concatenate([sol_bw[::-1], sol_fw[1:]])
+            
+            return t_total, sol_total
+        
+        else:
+            raise ValueError("direccion debe ser 'adelante', 'atras', o 'ambas'")

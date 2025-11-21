@@ -87,6 +87,12 @@ class InterfazGrafica:
         # Variables de visualización
         self.mostrar_nuclinas = tk.BooleanVar(value=False)
         
+        # Variables para solución temporal
+        self.x0_var = tk.StringVar(value="4")
+        self.y0_var = tk.StringVar(value="1")
+        self.t_eval_var = tk.StringVar(value="10")
+        self.resultado_temporal = tk.StringVar(value="---")
+        
         # Sistema actual
         self.sistema_actual = None
     
@@ -125,13 +131,51 @@ class InterfazGrafica:
         self.analizar_sistema()
     
     def _crear_panel_izquierdo(self, parent):
-        """Crea panel de controles izquierdo"""
-        left_frame = ttk.Frame(parent, padding="5")
+        """Crea panel de controles izquierdo con scrollbar"""
+        # Contenedor principal para el canvas y scrollbar
+        container = ttk.Frame(parent)
         
         if isinstance(self.root, tk.Tk):
-            left_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(0, 5))
+            container.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(0, 5))
         else:
-            left_frame.pack(fill=tk.BOTH, expand=True, padx=(0, 5))
+            container.pack(fill=tk.BOTH, expand=True, padx=(0, 5))
+        
+        # Canvas para permitir scroll
+        canvas = tk.Canvas(container, bg=COLORES['fondo'], highlightthickness=0, width=400)
+        scrollbar = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
+        
+        # Frame scrollable dentro del canvas
+        left_frame = ttk.Frame(canvas, padding="5")
+        
+        # Configurar canvas
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Empaquetar scrollbar y canvas
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        # Crear ventana en el canvas
+        canvas_window = canvas.create_window((0, 0), window=left_frame, anchor="nw")
+        
+        # Función para actualizar región de scroll
+        def _on_frame_configure(event=None):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+        
+        # Función para ajustar ancho del frame al canvas
+        def _on_canvas_configure(event):
+            canvas.itemconfig(canvas_window, width=event.width)
+        
+        left_frame.bind("<Configure>", _on_frame_configure)
+        canvas.bind("<Configure>", _on_canvas_configure)
+        
+        # Habilitar scroll con rueda del mouse
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        
+        # Guardar referencia al canvas para limpieza posterior
+        self.left_canvas = canvas
         
         # Título
         self._crear_seccion_titulo(left_frame)
@@ -153,6 +197,9 @@ class InterfazGrafica:
         
         # Resultados
         self._crear_resultados(left_frame)
+        
+        # Solución temporal con condiciones iniciales
+        self._crear_solucion_temporal(left_frame)
     
     def _crear_seccion_titulo(self, parent):
         """Crea sección de título"""
@@ -415,6 +462,58 @@ class InterfazGrafica:
             command=self.mostrar_analisis_popup,
             style='Accent.TButton')
         self.btn_analisis_detallado.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+    
+    def _crear_solucion_temporal(self, parent):
+        """Crea frame para solución temporal con condiciones iniciales"""
+        temporal_frame = ttk.LabelFrame(parent, text="📈 Solución Temporal", padding="10")
+        temporal_frame.grid(row=6, column=0, sticky=(tk.W, tk.E), pady=(10, 0))
+        
+        # Descripción
+        desc_label = ttk.Label(temporal_frame, 
+                              text="Evaluar solución con condiciones iniciales:",
+                              font=FUENTES['pequena'])
+        desc_label.grid(row=0, column=0, columnspan=4, sticky=tk.W, pady=(0, 8))
+        
+        # Condiciones iniciales
+        ttk.Label(temporal_frame, text="x(0) =", font=FUENTES['normal']).grid(
+            row=1, column=0, sticky=tk.W, padx=(0, 5))
+        ttk.Entry(temporal_frame, textvariable=self.x0_var, width=8).grid(
+            row=1, column=1, sticky=tk.W, padx=2)
+        
+        ttk.Label(temporal_frame, text="y(0) =", font=FUENTES['normal']).grid(
+            row=1, column=2, sticky=tk.W, padx=(10, 5))
+        ttk.Entry(temporal_frame, textvariable=self.y0_var, width=8).grid(
+            row=1, column=3, sticky=tk.W, padx=2)
+        
+        # Tiempo de evaluación
+        ttk.Label(temporal_frame, text="Tiempo t =", font=FUENTES['normal']).grid(
+            row=2, column=0, sticky=tk.W, padx=(0, 5), pady=(8, 0))
+        ttk.Entry(temporal_frame, textvariable=self.t_eval_var, width=8).grid(
+            row=2, column=1, sticky=tk.W, padx=2, pady=(8, 0))
+        
+        # Botón calcular
+        btn_calcular = ttk.Button(temporal_frame, text="Calcular",
+                                 command=self.calcular_solucion_temporal)
+        btn_calcular.grid(row=2, column=2, columnspan=2, sticky=(tk.W, tk.E), 
+                         padx=(10, 0), pady=(8, 0))
+        
+        # Separador
+        ttk.Separator(temporal_frame, orient='horizontal').grid(
+            row=3, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=10)
+        
+        # Resultado
+        ttk.Label(temporal_frame, text="Resultado:", font=FUENTES['normal']).grid(
+            row=4, column=0, sticky=tk.W, pady=(0, 5))
+        
+        resultado_label = ttk.Label(temporal_frame, textvariable=self.resultado_temporal,
+                                   font=FUENTES['normal_bold'], foreground=COLORES['primario'])
+        resultado_label.grid(row=4, column=1, columnspan=3, sticky=tk.W, pady=(0, 5))
+        
+        # Botón para graficar evolución completa
+        btn_graficar = ttk.Button(temporal_frame, text="📊 Graficar Evolución Temporal",
+                                 command=self.graficar_evolucion_temporal,
+                                 style='Accent.TButton')
+        btn_graficar.grid(row=5, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=(5, 0))
     
     def _crear_panel_derecho(self, parent):
         """Crea panel derecho con gráfica"""
@@ -786,6 +885,142 @@ class InterfazGrafica:
         self.ylim_min.set(-5.0)
         self.ylim_max.set(5.0)
         self.actualizar_limites()
+    
+    def calcular_solucion_temporal(self):
+        """Calcula la solución en un tiempo específico con condiciones iniciales"""
+        if self.sistema_actual is None:
+            messagebox.showwarning("Advertencia", "Primero analice un sistema")
+            return
+        
+        try:
+            x0 = float(self.x0_var.get())
+            y0 = float(self.y0_var.get())
+            t_eval = float(self.t_eval_var.get())
+            
+            if t_eval < 0:
+                messagebox.showerror("Error", "El tiempo debe ser no negativo")
+                return
+            
+            # Calcular solución en el tiempo especificado
+            condiciones_iniciales = [x0, y0]
+            solucion = self.sistema_actual.evaluar_en_tiempo(condiciones_iniciales, t_eval)
+            
+            # Mostrar resultado
+            self.resultado_temporal.set(f"x({t_eval}) = {solucion[0]:.4f},  y({t_eval}) = {solucion[1]:.4f}")
+            
+            # Marcar punto inicial y final en la gráfica
+            self._marcar_puntos_solucion(x0, y0, solucion[0], solucion[1], t_eval)
+            
+        except ValueError as e:
+            messagebox.showerror("Error", f"Error en los valores ingresados:\n{str(e)}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al calcular solución:\n{str(e)}")
+    
+    def _marcar_puntos_solucion(self, x0, y0, xf, yf, t):
+        """Marca puntos inicial y final de la solución en la gráfica"""
+        # Marcar punto inicial
+        self.ax.plot(x0, y0, 'go', markersize=10, markeredgecolor='darkgreen',
+                    markeredgewidth=2, label=f'(x₀,y₀) = ({x0},{y0})', zorder=10)
+        
+        # Marcar punto final
+        self.ax.plot(xf, yf, 'rs', markersize=10, markeredgecolor='darkred',
+                    markeredgewidth=2, label=f'(x({t}),y({t})) = ({xf:.2f},{yf:.2f})', zorder=10)
+        
+        # Línea conectando
+        self.ax.plot([x0, xf], [y0, yf], 'k--', linewidth=1, alpha=0.5, zorder=5)
+        
+        # Actualizar leyenda
+        self.ax.legend(loc='best', fontsize=9)
+        self.canvas.draw()
+    
+    def graficar_evolucion_temporal(self):
+        """Crea una nueva ventana con gráficas de evolución temporal"""
+        if self.sistema_actual is None:
+            messagebox.showwarning("Advertencia", "Primero analice un sistema")
+            return
+        
+        try:
+            x0 = float(self.x0_var.get())
+            y0 = float(self.y0_var.get())
+            t_max = float(self.t_eval_var.get())
+            
+            if t_max <= 0:
+                messagebox.showerror("Error", "El tiempo debe ser positivo")
+                return
+            
+            # Resolver sistema
+            condiciones_iniciales = [x0, y0]
+            t, solucion = self.sistema_actual.resolver_temporal(
+                condiciones_iniciales, t_max=t_max, num_puntos=500)
+            
+            # Crear nueva ventana
+            ventana = tk.Toplevel(self.root)
+            ventana.title(f"Evolución Temporal - x(0)={x0}, y(0)={y0}")
+            ventana.geometry("1000x700")
+            
+            # Crear figura con 3 subplots
+            fig = Figure(figsize=(10, 7))
+            
+            # 1. x(t) vs t
+            ax1 = fig.add_subplot(2, 2, 1)
+            ax1.plot(t, solucion[:, 0], 'b-', linewidth=2)
+            ax1.axhline(y=0, color='k', linestyle='--', alpha=0.3)
+            ax1.set_xlabel('Tiempo (t)', fontsize=10)
+            ax1.set_ylabel('x(t)', fontsize=10)
+            ax1.set_title(f'Evolución de x(t)\nx(0) = {x0}', fontsize=11, fontweight='bold')
+            ax1.grid(True, alpha=0.3)
+            
+            # 2. y(t) vs t
+            ax2 = fig.add_subplot(2, 2, 2)
+            ax2.plot(t, solucion[:, 1], 'r-', linewidth=2)
+            ax2.axhline(y=0, color='k', linestyle='--', alpha=0.3)
+            ax2.set_xlabel('Tiempo (t)', fontsize=10)
+            ax2.set_ylabel('y(t)', fontsize=10)
+            ax2.set_title(f'Evolución de y(t)\ny(0) = {y0}', fontsize=11, fontweight='bold')
+            ax2.grid(True, alpha=0.3)
+            
+            # 3. Plano de fase (x vs y)
+            ax3 = fig.add_subplot(2, 2, 3)
+            ax3.plot(solucion[:, 0], solucion[:, 1], 'g-', linewidth=2, label='Trayectoria')
+            ax3.plot(x0, y0, 'go', markersize=10, markeredgecolor='darkgreen',
+                    markeredgewidth=2, label=f'Inicio ({x0},{y0})', zorder=10)
+            ax3.plot(solucion[-1, 0], solucion[-1, 1], 'rs', markersize=10,
+                    markeredgecolor='darkred', markeredgewidth=2, 
+                    label=f't={t_max}', zorder=10)
+            ax3.set_xlabel('x', fontsize=10)
+            ax3.set_ylabel('y', fontsize=10)
+            ax3.set_title('Plano de Fase', fontsize=11, fontweight='bold')
+            ax3.grid(True, alpha=0.3)
+            ax3.legend(loc='best', fontsize=9)
+            
+            # 4. x(t) y y(t) juntas
+            ax4 = fig.add_subplot(2, 2, 4)
+            ax4.plot(t, solucion[:, 0], 'b-', linewidth=2, label='x(t)')
+            ax4.plot(t, solucion[:, 1], 'r-', linewidth=2, label='y(t)')
+            ax4.axhline(y=0, color='k', linestyle='--', alpha=0.3)
+            ax4.set_xlabel('Tiempo (t)', fontsize=10)
+            ax4.set_ylabel('Valor', fontsize=10)
+            ax4.set_title('Ambas Variables', fontsize=11, fontweight='bold')
+            ax4.grid(True, alpha=0.3)
+            ax4.legend(loc='best', fontsize=9)
+            
+            fig.tight_layout(pad=2.0)
+            
+            # Agregar canvas a la ventana
+            canvas = FigureCanvasTkAgg(fig, master=ventana)
+            canvas.draw()
+            canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+            
+            # Toolbar
+            toolbar_frame = ttk.Frame(ventana)
+            toolbar_frame.pack(fill=tk.X)
+            toolbar = NavigationToolbar2Tk(canvas, toolbar_frame)
+            toolbar.update()
+            
+        except ValueError as e:
+            messagebox.showerror("Error", f"Error en los valores ingresados:\n{str(e)}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al graficar evolución:\n{str(e)}")
     
     def mostrar_analisis_popup(self):
         """Abre ventana popup con análisis detallado"""
