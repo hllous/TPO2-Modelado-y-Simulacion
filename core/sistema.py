@@ -870,3 +870,93 @@ class SistemaDinamico2D:
                 'es_valido': False,
                 'mensaje': f'Error al calcular soluciones paramétricas: {str(e)}'
             }
+    
+    def calcular_solucion_particular(self, x0, y0):
+        """
+        Calcula la solución particular dado x(0) e y(0)
+        Resuelve el sistema de ecuaciones para encontrar c1 y c2
+        
+        Parámetros:
+        - x0: valor inicial de x en t=0
+        - y0: valor inicial de y en t=0
+        
+        Retorna:
+        - dict con:
+          - 'es_valido': bool
+          - 'c1', 'c2': valores de las constantes
+          - 'x_particular': expresión de x(t)
+          - 'y_particular': expresión de y(t)
+          - 'latex': {'x': latex, 'y': latex}
+        """
+        # Primero obtener la solución general
+        sol_general = self.obtener_soluciones_parametricas()
+        
+        if not sol_general['es_valido']:
+            return {
+                'es_valido': False,
+                'mensaje': sol_general['mensaje']
+            }
+        
+        try:
+            # Obtener expresiones simbólicas de la solución general
+            x_t = sol_general['sympy_expr']['x']
+            y_t = sol_general['sympy_expr']['y']
+            
+            # Definir símbolos
+            t = sp.Symbol('t', real=True, positive=True)
+            c1, c2 = sp.symbols('c1 c2', real=True)
+            
+            # Evaluar en t=0 para obtener sistema de ecuaciones
+            x_0 = x_t.subs(t, 0)
+            y_0 = y_t.subs(t, 0)
+            
+            # Crear sistema de ecuaciones: x(0) = x0, y(0) = y0
+            eq1 = sp.Eq(x_0, x0)
+            eq2 = sp.Eq(y_0, y0)
+            
+            # Resolver para c1 y c2
+            solucion = sp.solve([eq1, eq2], [c1, c2])
+            
+            if not solucion:
+                return {
+                    'es_valido': False,
+                    'mensaje': 'No se pudo resolver el sistema para las condiciones iniciales dadas'
+                }
+            
+            # Extraer valores de c1 y c2
+            c1_val = solucion[c1]
+            c2_val = solucion[c2]
+            
+            # Sustituir en las expresiones generales
+            x_particular = x_t.subs([(c1, c1_val), (c2, c2_val)])
+            y_particular = y_t.subs([(c1, c1_val), (c2, c2_val)])
+            
+            # Simplificar
+            x_particular = sp.simplify(x_particular)
+            y_particular = sp.simplify(y_particular)
+            
+            return {
+                'es_valido': True,
+                'c1': float(complex(c1_val).real) if complex(c1_val).imag == 0 else complex(c1_val),
+                'c2': float(complex(c2_val).real) if complex(c2_val).imag == 0 else complex(c2_val),
+                'x_particular': str(x_particular),
+                'y_particular': str(y_particular),
+                'latex': {
+                    'x': sp.latex(x_particular),
+                    'y': sp.latex(y_particular)
+                },
+                'sympy_expr': {
+                    'x': x_particular,
+                    'y': y_particular
+                },
+                'condiciones_iniciales': {
+                    'x0': x0,
+                    'y0': y0
+                }
+            }
+        
+        except Exception as e:
+            return {
+                'es_valido': False,
+                'mensaje': f'Error al calcular solución particular: {str(e)}'
+            }

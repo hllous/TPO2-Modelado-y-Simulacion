@@ -41,6 +41,13 @@ class InterfazSolucionesParametricas:
         # Variables para funciones (con valores por defecto)
         self.f1_var = tk.StringVar(value="y")
         self.f2_var = tk.StringVar(value="-x")
+        
+        # Variables para condiciones iniciales
+        self.x0_var = tk.StringVar(value="1")
+        self.y0_var = tk.StringVar(value="0")
+        
+        # Variable para almacenar resultado general
+        self.resultado_general = None
     
     def _crear_widgets(self):
         """Crea la estructura principal de widgets"""
@@ -78,6 +85,7 @@ class InterfazSolucionesParametricas:
         # Crear secciones
         self._crear_titulo(scrollable_frame)
         self._crear_entrada_funciones(scrollable_frame)
+        self._crear_condiciones_iniciales(scrollable_frame)
         self._crear_botones(scrollable_frame)
         self._crear_area_resultados(scrollable_frame)
         
@@ -151,6 +159,44 @@ class InterfazSolucionesParametricas:
                         font=FUENTES['pequena'], foreground=COLORES['texto_secundario'])
         nota.pack(anchor=tk.W, pady=(5, 0))
     
+    def _crear_condiciones_iniciales(self, parent):
+        """Crea sección de condiciones iniciales"""
+        cond_frame = ttk.LabelFrame(parent, text="📌 Solución Particular", padding="15")
+        cond_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        # Descripción
+        desc = ttk.Label(cond_frame, 
+                        text="Especifique las condiciones iniciales para calcular una solución particular:",
+                        font=FUENTES['normal'])
+        desc.pack(anchor=tk.W, pady=(0, 10))
+        
+        # Frame para entradas
+        inputs_frame = ttk.Frame(cond_frame)
+        inputs_frame.pack(fill=tk.X, pady=5)
+        
+        # x(0)
+        x0_frame = ttk.Frame(inputs_frame)
+        x0_frame.pack(side=tk.LEFT, padx=(0, 20))
+        ttk.Label(x0_frame, text="x(0) =", font=FUENTES['normal']).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Entry(x0_frame, textvariable=self.x0_var, width=15, font=FUENTES['normal']).pack(side=tk.LEFT)
+        
+        # y(0)
+        y0_frame = ttk.Frame(inputs_frame)
+        y0_frame.pack(side=tk.LEFT)
+        ttk.Label(y0_frame, text="y(0) =", font=FUENTES['normal']).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Entry(y0_frame, textvariable=self.y0_var, width=15, font=FUENTES['normal']).pack(side=tk.LEFT)
+        
+        # Botón para calcular
+        ttk.Button(cond_frame, text="🎯 Calcular Solución Particular",
+                  command=self.calcular_solucion_particular,
+                  style='Accent.TButton').pack(pady=(10, 0))
+        
+        # Nota
+        nota = ttk.Label(cond_frame,
+                        text="💡 Primero calcule la solución general, luego especifique x(0) e y(0)",
+                        font=FUENTES['pequena'], foreground=COLORES['texto_secundario'])
+        nota.pack(anchor=tk.W, pady=(10, 0))
+    
     def _crear_botones(self, parent):
         """Crea botones de acción"""
         btn_frame = ttk.Frame(parent)
@@ -204,6 +250,9 @@ class InterfazSolucionesParametricas:
             if not resultado['es_valido']:
                 messagebox.showwarning("Advertencia", resultado['mensaje'])
                 return
+            
+            # Guardar resultado para uso posterior
+            self.resultado_general = resultado
             
             # Mostrar resultados
             self._mostrar_resultados(resultado)
@@ -350,11 +399,176 @@ class InterfazSolucionesParametricas:
         self.root.clipboard_append(texto)
         messagebox.showinfo("✓ Copiado", "Expresiones copiadas al portapapeles")
     
+    def calcular_solucion_particular(self):
+        """Calcula la solución particular con las condiciones iniciales dadas"""
+        try:
+            # Verificar que exista sistema actual
+            if not self.sistema_actual:
+                messagebox.showwarning("Advertencia", 
+                    "Primero calcule la solución general usando 'Calcular Soluciones Paramétricas'")
+                return
+            
+            # Leer condiciones iniciales
+            x0_str = self.x0_var.get().strip()
+            y0_str = self.y0_var.get().strip()
+            
+            if not x0_str or not y0_str:
+                messagebox.showerror("Error", "Por favor, ingrese ambas condiciones iniciales")
+                return
+            
+            try:
+                x0 = float(eval(x0_str))
+                y0 = float(eval(y0_str))
+            except:
+                messagebox.showerror("Error", "Las condiciones iniciales deben ser números válidos")
+                return
+            
+            # Calcular solución particular
+            resultado = self.sistema_actual.calcular_solucion_particular(x0, y0)
+            
+            if not resultado['es_valido']:
+                messagebox.showwarning("Advertencia", resultado['mensaje'])
+                return
+            
+            # Mostrar resultado de solución particular
+            self._mostrar_solucion_particular(resultado)
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al calcular solución particular:\n{str(e)}")
+    
+    def _mostrar_solucion_particular(self, resultado):
+        """Muestra la solución particular en una ventana nueva"""
+        particular_window = tk.Toplevel(self.root)
+        particular_window.title("Solución Particular")
+        particular_window.geometry("900x700")
+        particular_window.configure(bg=COLORES['fondo'])
+        
+        # Frame principal con scroll
+        main_frame = ttk.Frame(particular_window, padding="20")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Canvas y scrollbar
+        canvas = tk.Canvas(main_frame, bg=COLORES['fondo'], highlightthickness=0)
+        scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Título
+        titulo_frame = ttk.Frame(scrollable_frame, style='Card.TFrame', padding="15")
+        titulo_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        ttk.Label(titulo_frame, text="🎯 Solución Particular",
+                 font=FUENTES['titulo_seccion'], 
+                 foreground=COLORES['primario']).pack(anchor=tk.W)
+        
+        # Condiciones iniciales
+        cond_frame = ttk.Frame(scrollable_frame, style='Card.TFrame', padding="15")
+        cond_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        ttk.Label(cond_frame, text="Condiciones Iniciales:",
+                 font=FUENTES['normal_bold']).pack(anchor=tk.W)
+        
+        cond_text = f"x(0) = {resultado['condiciones_iniciales']['x0']}\ny(0) = {resultado['condiciones_iniciales']['y0']}"
+        ttk.Label(cond_frame, text=cond_text, font=FUENTES['normal'],
+                 foreground=COLORES['secundario']).pack(anchor=tk.W, pady=(5, 0))
+        
+        # Constantes calculadas
+        const_frame = ttk.Frame(scrollable_frame, style='Card.TFrame', padding="15")
+        const_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        ttk.Label(const_frame, text="Constantes Calculadas:",
+                 font=FUENTES['normal_bold']).pack(anchor=tk.W)
+        
+        c1_val = resultado['c1']
+        c2_val = resultado['c2']
+        
+        # Formatear constantes
+        if isinstance(c1_val, complex):
+            c1_str = f"{c1_val.real:.4f} + {c1_val.imag:.4f}i" if c1_val.imag >= 0 else f"{c1_val.real:.4f} - {abs(c1_val.imag):.4f}i"
+        else:
+            c1_str = f"{c1_val:.4f}"
+        
+        if isinstance(c2_val, complex):
+            c2_str = f"{c2_val.real:.4f} + {c2_val.imag:.4f}i" if c2_val.imag >= 0 else f"{c2_val.real:.4f} - {abs(c2_val.imag):.4f}i"
+        else:
+            c2_str = f"{c2_val:.4f}"
+        
+        const_text = f"c₁ = {c1_str}\nc₂ = {c2_str}"
+        ttk.Label(const_frame, text=const_text, font=FUENTES['normal'],
+                 foreground=COLORES['exito']).pack(anchor=tk.W, pady=(5, 0))
+        
+        # Solución particular
+        sol_frame = ttk.Frame(scrollable_frame, style='Card.TFrame', padding="15")
+        sol_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+        
+        ttk.Label(sol_frame, text="Solución Particular del Sistema:",
+                 font=FUENTES['titulo_seccion'], 
+                 foreground=COLORES['exito']).pack(anchor=tk.W, pady=(0, 15))
+        
+        # Renderizar x(t) con LaTeX
+        self._renderizar_ecuacion(sol_frame, "x(t) = ", resultado['latex']['x'], COLORES['primario'])
+        
+        # Renderizar y(t) con LaTeX
+        self._renderizar_ecuacion(sol_frame, "y(t) = ", resultado['latex']['y'], COLORES['primario'])
+        
+        # Botones de acción
+        btn_frame = ttk.Frame(scrollable_frame)
+        btn_frame.pack(fill=tk.X, pady=(10, 0))
+        
+        ttk.Button(btn_frame, text="📋 Copiar LaTeX",
+                  command=lambda: self._copiar_latex_particular(resultado)).pack(side=tk.LEFT, padx=5)
+        
+        ttk.Button(btn_frame, text="💾 Copiar Expresiones",
+                  command=lambda: self._copiar_expresiones_particular(resultado)).pack(side=tk.LEFT, padx=5)
+        
+        ttk.Button(btn_frame, text="✖️ Cerrar",
+                  command=particular_window.destroy).pack(side=tk.RIGHT, padx=5)
+        
+        # Habilitar scroll con la rueda del mouse
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        
+        canvas.bind("<MouseWheel>", _on_mousewheel)
+        
+        def aplicar_scroll(widget):
+            widget.bind("<MouseWheel>", _on_mousewheel)
+            for child in widget.winfo_children():
+                aplicar_scroll(child)
+        
+        aplicar_scroll(scrollable_frame)
+    
+    def _copiar_latex_particular(self, resultado):
+        """Copia las expresiones de la solución particular en formato LaTeX"""
+        latex_text = f"x(t) = {resultado['latex']['x']}\n\ny(t) = {resultado['latex']['y']}"
+        self.root.clipboard_clear()
+        self.root.clipboard_append(latex_text)
+        messagebox.showinfo("✓ Copiado", "Solución particular en LaTeX copiada al portapapeles")
+    
+    def _copiar_expresiones_particular(self, resultado):
+        """Copia las expresiones de la solución particular en texto plano"""
+        texto = f"x(t) = {resultado['x_particular']}\n\ny(t) = {resultado['y_particular']}"
+        self.root.clipboard_clear()
+        self.root.clipboard_append(texto)
+        messagebox.showinfo("✓ Copiado", "Solución particular copiada al portapapeles")
+    
     def limpiar(self):
         """Limpia todos los campos"""
         # Restaurar valores por defecto
         self.f1_var.set("y")
         self.f2_var.set("-x")
+        self.x0_var.set("1")
+        self.y0_var.set("0")
+        self.resultado_general = None
         
         # Limpiar resultados
         for widget in self.resultados_frame.winfo_children():
