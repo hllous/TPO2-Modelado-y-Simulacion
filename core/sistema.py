@@ -316,8 +316,16 @@ class SistemaDinamico2D:
             except:
                 pass  # Si falla búsqueda simbólica, usar numérica
         
+        # Detectar y almacenar posibles ciclos límite antes de la búsqueda numérica
+        self._detectar_ciclos_limite()
+        
+        # Detectar y almacenar posibles ciclos límite antes de la búsqueda numérica
+        self._detectar_ciclos_limite()
+        
         # Búsqueda numérica complementaria (encuentra puntos que la simbólica puede perder)
-        puntos_prueba = self._generar_puntos_prueba(xlim, ylim)
+        # LIMITAR búsqueda si ya detectamos un ciclo límite
+        max_puntos_numericos = 5 if hasattr(self, 'ciclo_limite') and self.ciclo_limite else 50
+        puntos_prueba = self._generar_puntos_prueba(xlim, ylim, max_puntos=max_puntos_numericos)
         
         # Silenciar warnings de convergencia de fsolve
         import warnings
@@ -348,17 +356,193 @@ class SistemaDinamico2D:
         
         return puntos_equilibrio
     
+    def _detectar_ciclos_limite(self):
+        """
+        Detecta ciclos límite analizando las soluciones simbólicas.
+        Un ciclo límite típicamente aparece cuando las soluciones son paramétricas.
+        """
+        self.ciclo_limite = None
+        
+        if not self.funcion_personalizada or not hasattr(self, 'f1_sym') or self.f1_sym is None:
+            return
+        
+        try:
+            # Método directo: detectar factor común primero (más robusto)
+            # Factorizar las ecuaciones
+            f1_factorizado = sp.factor(self.f1_sym)
+            f2_factorizado = sp.factor(self.f2_sym)
+            
+            # Buscar factores comunes (pueden indicar curva de equilibrios)
+            f1_factors = self._obtener_factores(f1_factorizado)
+            f2_factors = self._obtener_factores(f2_factorizado)
+            
+            # Convertir factores a strings para comparación
+            f1_factors_str = [str(sp.simplify(f)) for f in f1_factors]
+            f2_factors_str = [str(sp.simplify(f)) for f in f2_factors]
+            
+            factores_comunes = []
+            for i, f1_str in enumerate(f1_factors_str):
+                for j, f2_str in enumerate(f2_factors_str):
+                    # Comparar factores (simplificados)
+                    if f1_str == f2_str and len(f1_str) > 3:  # Evitar factores triviales como "x" o "-1"
+                        factor_original = f1_factors[i]
+                        if self.x_sym in factor_original.free_symbols and self.y_sym in factor_original.free_symbols:
+                            factores_comunes.append(factor_original)
+            
+            # Analizar factores comunes
+            for factor in factores_comunes:
+                curva_info = self._analizar_factor_comun(factor)
+                if curva_info:
+                    self.ciclo_limite = curva_info
+                    return
+            
+            # Método alternativo: resolver simbólicamente y buscar soluciones paramétricas
+            soluciones = sp.solve([self.f1_sym, self.f2_sym], 
+                                 [self.x_sym, self.y_sym], dict=True)
+            
+            # Buscar soluciones paramétricas
+            for sol_dict in soluciones:
+                x_sol = sol_dict.get(self.x_sym)
+                y_sol = sol_dict.get(self.y_sym)
+                
+                if x_sol is None or y_sol is None:
+                    continue
+                
+                # Verificar si alguna solución es paramétrica (contiene la variable libre)
+                # Ejemplo: y = sqrt(1 - x**2) indica una curva
+                if self.x_sym in y_sol.free_symbols or self.y_sym in x_sol.free_symbols:
+                    # Intentar identificar el tipo de curva
+                    curva_info = self._identificar_curva(x_sol, y_sol)
+                    if curva_info:
+                        self.ciclo_limite = curva_info
+                        return
+                    
+        except Exception as e:
+            pass  # No se pudo detectar ciclo límite
+    
+    def _obtener_factores(self, expr):
+        """Extrae factores de una expresión factorizada"""
+        if isinstance(expr, sp.Mul):
+            return list(expr.args)
+        else:
+            return [expr]
+    
+    def _identificar_curva(self, x_expr, y_expr):
+        """
+        Intenta identificar el tipo de curva a partir de las expresiones paramétricas.
+        Retorna dict con info de la curva o None.
+        """
+        try:
+            # Caso: círculo -> y = ±sqrt(R² - x²)
+            if isinstance(y_expr, sp.sqrt) or isinstance(y_expr, sp.Pow):
+                # Extraer argumento del sqrt
+                if isinstance(y_expr, sp.sqrt):
+                    arg = y_expr.args[0]
+                elif hasattr(y_expr, 'exp') and y_expr.exp == sp.Rational(1, 2):
+                    arg = y_expr.args[0]
+                else:
+                    return None
+                
+                # Verificar si es de la forma R² - x²
+                expanded = sp.expand(arg)
+                
+                # Buscar término con x²
+                x_coef = expanded.coeff(self.x_sym**2)
+                const = expanded.as_coeff_add(self.x_sym)[0]
+                
+                if x_coef is not None and x_coef == -1:
+                    # Forma: R² - x² donde R² = const
+                    R_cuadrado = const
+                    if R_cuadrado > 0:
+                        R = float(sp.sqrt(R_cuadrado))
+                        return {
+                            'tipo': 'circulo',
+                            'centro': (0, 0),
+                            'radio': R,
+                            'ecuacion': f'x² + y² = {R_cuadrado}'
+                        }
+        except:
+            pass
+        
+        return None
+    
+    def _analizar_factor_comun(self, factor):
+        """
+        Analiza un factor común para determinar si representa un ciclo límite.
+        """
+        try:
+            # Reorganizar como ecuación = 0
+            ecuacion = sp.expand(factor)
+            
+            # Detectar círculo: ax² + ay² + bx + cy + d = 0
+            coef_x2 = ecuacion.coeff(self.x_sym**2)
+            coef_y2 = ecuacion.coeff(self.y_sym**2)
+            coef_x = ecuacion.coeff(self.x_sym, 1)  # Coef lineal de x
+            coef_y = ecuacion.coeff(self.y_sym, 1)  # Coef lineal de y
+            
+            # Obtener término independiente (sin x ni y)
+            termino_indep = ecuacion.subs([(self.x_sym, 0), (self.y_sym, 0)])
+            
+            if coef_x2 is not None and coef_y2 is not None and coef_x2 != 0:
+                # Verificar si los coeficientes de x² e y² son iguales (círculo)
+                ratio = sp.simplify(coef_y2 / coef_x2)
+                
+                if ratio == 1 or ratio == -1:  # Mismos coeficientes (en valor absoluto)
+                    # Normalizar dividiendo por coef_x2
+                    coef_x_norm = coef_x / coef_x2 if coef_x else 0
+                    coef_y_norm = coef_y / coef_x2 if coef_y else 0
+                    const_norm = termino_indep / coef_x2 if termino_indep else 0
+                    
+                    # Fórmula: x² + y² + ax + by + c = 0
+                    # Centro: (-a/2, -b/2)
+                    # Radio: sqrt((a/2)² + (b/2)² - c)
+                    
+                    a = float(coef_x_norm) if coef_x_norm else 0
+                    b = float(coef_y_norm) if coef_y_norm else 0
+                    c = float(const_norm) if const_norm else 0
+                    
+                    centro_x = -a / 2
+                    centro_y = -b / 2
+                    R_cuadrado = (a/2)**2 + (b/2)**2 - c
+                    
+                    if R_cuadrado > 0:
+                        R = np.sqrt(R_cuadrado)
+                        return {
+                            'tipo': 'circulo',
+                            'centro': (centro_x, centro_y),
+                            'radio': R,
+                            'ecuacion': str(factor) + ' = 0'
+                        }
+        except:
+            pass
+        
+        return None
+    
     @staticmethod
-    def _generar_puntos_prueba(xlim, ylim):
+    def _generar_puntos_prueba(xlim, ylim, max_puntos=None):
         """
         Genera puntos iniciales para búsqueda de equilibrios
         Estrategia mejorada: malla adaptativa + puntos en bordes + origen
+        
+        Parámetros:
+        - max_puntos: limita el número de puntos (útil cuando hay ciclos límite)
         """
         import numpy as np
         puntos = []
         
         # Siempre incluir el origen (importante para sistemas lineales)
         puntos.append((0, 0))
+        
+        # Si hay límite de puntos, usar solo puntos clave
+        if max_puntos and max_puntos < 20:
+            # Solo origen y esquinas
+            puntos.extend([
+                (xlim[0], ylim[0]),
+                (xlim[0], ylim[1]),
+                (xlim[1], ylim[0]),
+                (xlim[1], ylim[1])
+            ])
+            return puntos[:max_puntos]
         
         # Agregar esquinas del dominio
         puntos.extend([
@@ -548,6 +732,11 @@ class SistemaDinamico2D:
                 autovectores = self.autovectores
             
             # Función auxiliar para convertir números a formas simbólicas exactas
+            # Constantes pre-calculadas para eficiencia
+            SQRT_2 = sp.sqrt(2)
+            SQRT_3 = sp.sqrt(3)
+            INV_SQRT_2 = 1/SQRT_2
+            
             def numero_a_simbolico(val, tolerancia=1e-3):
                 """Convierte un número a su forma simbólica cuando sea posible"""
                 if isinstance(val, complex):
@@ -565,22 +754,22 @@ class SistemaDinamico2D:
                     return sp.Integer(1)
                 elif abs(val + 1) < 1e-10:
                     return sp.Integer(-1)
-                elif abs(val - 1/sp.sqrt(2)) < tolerancia:  # ≈ 0.7071
-                    return 1/sp.sqrt(2)
-                elif abs(val + 1/sp.sqrt(2)) < tolerancia:  # ≈ -0.7071
-                    return -1/sp.sqrt(2)
-                elif abs(val - sp.sqrt(2)) < tolerancia:  # ≈ 1.4142
-                    return sp.sqrt(2)
-                elif abs(val + sp.sqrt(2)) < tolerancia:  # ≈ -1.4142
-                    return -sp.sqrt(2)
-                elif abs(val - 1/2) < 1e-10:
+                elif abs(val - float(INV_SQRT_2)) < tolerancia:  # ≈ 0.7071
+                    return INV_SQRT_2
+                elif abs(val + float(INV_SQRT_2)) < tolerancia:  # ≈ -0.7071
+                    return -INV_SQRT_2
+                elif abs(val - float(SQRT_2)) < tolerancia:  # ≈ 1.4142
+                    return SQRT_2
+                elif abs(val + float(SQRT_2)) < tolerancia:  # ≈ -1.4142
+                    return -SQRT_2
+                elif abs(val - 0.5) < 1e-10:
                     return sp.Rational(1, 2)
-                elif abs(val + 1/2) < 1e-10:
+                elif abs(val + 0.5) < 1e-10:
                     return sp.Rational(-1, 2)
-                elif abs(val - sp.sqrt(3)) < tolerancia:  # ≈ 1.7321
-                    return sp.sqrt(3)
-                elif abs(val + sp.sqrt(3)) < tolerancia:  # ≈ -1.7321
-                    return -sp.sqrt(3)
+                elif abs(val - float(SQRT_3)) < tolerancia:  # ≈ 1.7321
+                    return SQRT_3
+                elif abs(val + float(SQRT_3)) < tolerancia:  # ≈ -1.7321
+                    return -SQRT_3
                 # Si no hay conversión especial, redondear a 4 decimales
                 return sp.Float(round(val, 4), 4)
             
@@ -601,18 +790,23 @@ class SistemaDinamico2D:
             # Verificar si tienen parte imaginaria no nula
             def tiene_parte_imaginaria(λ):
                 """Verifica si un autovalor tiene parte imaginaria no nula"""
-                if isinstance(λ, (sp.Add, sp.Mul)) and sp.I in λ.free_symbols:
-                    return True
-                # Verificar parte imaginaria de números complejos
+                # Para símbolos de SymPy o valores complejos
                 im_part = sp.im(λ)
-                return abs(complex(im_part)) > 1e-10
+                # Convertir a float para comparación numérica
+                try:
+                    return abs(float(im_part)) > 1e-10
+                except (TypeError, ValueError):
+                    # Si no se puede convertir, verificar simbólicamente
+                    return im_part != 0 and not im_part.is_zero
             
             es_complejo_1 = tiene_parte_imaginaria(λ1)
             es_complejo_2 = tiene_parte_imaginaria(λ2)
             
             if not (es_complejo_1 or es_complejo_2):
                 # Autovalores reales
-                if abs(complex(λ1) - complex(λ2)) < 1e-10:  # Autovalor repetido
+                # Comparar usando SymPy para mayor precisión
+                diff = sp.simplify(λ1 - λ2)
+                if abs(float(diff)) < 1e-10:  # Autovalor repetido
                     tipo = 'Autovalor repetido'
                     λ = λ1
                     x_t = (c1 * v1[0] + c2 * (v1[0] * t + v2[0])) * sp.exp(λ * t)

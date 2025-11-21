@@ -129,9 +129,14 @@ class Grapher:
                         fc='red', ec='red', linewidth=2, alpha=0.8)
     
     def _marcar_puntos_equilibrio(self, ax, xlim, ylim):
-        """Marca puntos de equilibrio"""
+        """Marca puntos de equilibrio y ciclos límite"""
         puntos_eq = self.sistema.encontrar_puntos_equilibrio(xlim, ylim)
         
+        # Primero verificar si hay ciclo límite
+        if hasattr(self.sistema, 'ciclo_limite') and self.sistema.ciclo_limite:
+            self._graficar_ciclo_limite(ax, self.sistema.ciclo_limite)
+        
+        # Luego graficar puntos de equilibrio discretos
         if puntos_eq:
             for i, (px, py) in enumerate(puntos_eq):
                 kwargs = {
@@ -141,6 +146,26 @@ class Grapher:
                 if i == 0:
                     kwargs['label'] = 'Punto de equilibrio'
                 ax.plot(px, py, 'ko', **kwargs)
+    
+    def _graficar_ciclo_limite(self, ax, ciclo_info):
+        """Grafica un ciclo límite como curva continua"""
+        import numpy as np
+        
+        if ciclo_info['tipo'] == 'circulo':
+            centro = ciclo_info['centro']
+            radio = ciclo_info['radio']
+            
+            # Generar puntos del círculo
+            theta = np.linspace(0, 2*np.pi, 200)
+            x_circulo = centro[0] + radio * np.cos(theta)
+            y_circulo = centro[1] + radio * np.sin(theta)
+            
+            # Graficar círculo como curva continua
+            ax.plot(x_circulo, y_circulo, 'r-', linewidth=3, 
+                   label=f'Ciclo límite (R={radio:.2f})', zorder=4, alpha=0.8)
+            
+            # Agregar sombreado para indicar la región
+            ax.fill(x_circulo, y_circulo, color='red', alpha=0.1, zorder=1)
     
     def _configurar_ejes(self, ax, xlim, ylim):
         """Configura apariencia de los ejes"""

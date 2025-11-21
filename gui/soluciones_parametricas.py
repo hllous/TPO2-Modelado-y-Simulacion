@@ -6,7 +6,6 @@ de sistemas dinámicos lineales 2D
 import tkinter as tk
 from tkinter import ttk, messagebox
 import numpy as np
-import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from ui.estilos import COLORES, FUENTES
@@ -25,6 +24,8 @@ class InterfazSolucionesParametricas:
         """
         self.root = root
         self.sistema_actual = None
+        self.scroll_canvas = None  # Para referencia al canvas principal
+        self.scroll_callback = None  # Para callback de mousewheel
         
         # Configurar root si es Tk
         if isinstance(self.root, tk.Tk):
@@ -40,9 +41,6 @@ class InterfazSolucionesParametricas:
         # Variables para funciones (con valores por defecto)
         self.f1_var = tk.StringVar(value="y")
         self.f2_var = tk.StringVar(value="-x")
-        
-        # Variable para resultado
-        self.resultado_tipo = tk.StringVar(value="")
     
     def _crear_widgets(self):
         """Crea la estructura principal de widgets"""
@@ -77,17 +75,38 @@ class InterfazSolucionesParametricas:
         scrollable_frame.bind("<Configure>", _on_frame_configure)
         canvas.bind("<Configure>", _on_canvas_configure)
         
-        # Scroll con rueda del mouse
-        def _on_mousewheel(event):
-            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-        
-        canvas.bind_all("<MouseWheel>", _on_mousewheel)
-        
         # Crear secciones
         self._crear_titulo(scrollable_frame)
         self._crear_entrada_funciones(scrollable_frame)
         self._crear_botones(scrollable_frame)
         self._crear_area_resultados(scrollable_frame)
+        
+        # Guardar referencia al canvas y habilitar scroll con rueda del mouse
+        self.scroll_canvas = canvas
+        self._habilitar_scroll_mousewheel(canvas, scrollable_frame)
+    
+    def _habilitar_scroll_mousewheel(self, canvas, frame=None):
+        """Habilita scroll con rueda del mouse en un canvas y sus widgets hijos"""
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        
+        # Guardar callback para uso posterior
+        self.scroll_callback = _on_mousewheel
+        
+        # Binding al canvas
+        canvas.bind("<MouseWheel>", _on_mousewheel)
+        
+        # Si se proporciona un frame, hacer binding recursivo a todos sus hijos
+        if frame:
+            self._aplicar_scroll_recursivo(frame, _on_mousewheel)
+        
+        return _on_mousewheel
+    
+    def _aplicar_scroll_recursivo(self, widget, callback):
+        """Aplica el callback de scroll recursivamente a un widget y sus hijos"""
+        widget.bind("<MouseWheel>", callback)
+        for child in widget.winfo_children():
+            self._aplicar_scroll_recursivo(child, callback)
     
     def _crear_titulo(self, parent):
         """Crea sección de título"""
@@ -228,11 +247,8 @@ class InterfazSolucionesParametricas:
         
         eigen_text = f"λ₁ = {λ1_str},  v₁ = {v1_str}\nλ₂ = {λ2_str},  v₂ = {v2_str}"
         
-        eigen_label = tk.Text(eigen_frame, height=2, wrap=tk.WORD, font=FUENTES['normal'],
-                             bg=COLORES['fondo'], relief=tk.FLAT, borderwidth=0)
-        eigen_label.pack(fill=tk.X)
-        eigen_label.insert('1.0', eigen_text)
-        eigen_label.config(state=tk.DISABLED, fg=COLORES['secundario'])
+        ttk.Label(eigen_frame, text=eigen_text, font=FUENTES['normal'],
+                 foreground=COLORES['secundario'], justify=tk.LEFT).pack(anchor=tk.W)
         
         # Soluciones paramétricas con renderizado LaTeX
         sol_frame = ttk.Frame(self.resultados_frame, style='Card.TFrame', padding="15")
@@ -269,6 +285,10 @@ class InterfazSolucionesParametricas:
         
         ttk.Button(btn_frame, text="💾 Copiar Expresiones",
                   command=lambda: self._copiar_expresiones(resultado)).pack(side=tk.LEFT, padx=5)
+        
+        # Aplicar scroll a los nuevos widgets creados
+        if self.scroll_callback and self.resultados_frame:
+            self._aplicar_scroll_recursivo(self.resultados_frame, self.scroll_callback)
     
     def _renderizar_ecuacion(self, parent, label_text, latex_expr, color):
         """Renderiza una ecuación usando matplotlib con LaTeX"""
@@ -411,15 +431,16 @@ class InterfazSolucionesParametricas:
             btn = ttk.Button(frame_ejemplo, text="Cargar", command=cargar)
             btn.pack(anchor=tk.E, pady=(5, 0))
         
-        # Habilitar scroll con la rueda del mouse
-        def _on_mousewheel(event):
+        # Habilitar scroll con la rueda del mouse en el canvas y todos los widgets
+        def _on_mousewheel_ejemplos(event):
             canvas.yview_scroll(int(-1*(event.delta/120)), "units")
         
-        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        canvas.bind("<MouseWheel>", _on_mousewheel_ejemplos)
         
-        # Limpiar el binding cuando se cierre la ventana
-        def _on_close():
-            canvas.unbind_all("<MouseWheel>")
-            ejemplos_window.destroy()
+        # Aplicar a todos los widgets del scrollable_frame
+        def aplicar_scroll(widget):
+            widget.bind("<MouseWheel>", _on_mousewheel_ejemplos)
+            for child in widget.winfo_children():
+                aplicar_scroll(child)
         
-        ejemplos_window.protocol("WM_DELETE_WINDOW", _on_close)
+        aplicar_scroll(scrollable_frame)
